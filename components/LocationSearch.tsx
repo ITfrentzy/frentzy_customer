@@ -29,6 +29,8 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
     const cls = item.class as string | undefined;
     const typ = item.type as string | undefined;
     let kind: Suggestion["kind"] = "address";
+
+    // Only allow cities, towns, and airports - filter out regions, states, countries
     if (cls === "aeroway" && (typ === "aerodrome" || typ === "terminal"))
       kind = "airport";
     else if (
@@ -41,6 +43,10 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
       (cls === "public_transport" && typ === "station")
     )
       kind = "station";
+    else {
+      // Filter out regions, states, countries, etc.
+      return null;
+    }
 
     const addr = (item.address ?? {}) as Record<string, string | undefined>;
     const city =
@@ -49,7 +55,6 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
       addr.village ||
       addr.hamlet ||
       addr.municipality ||
-      addr.county ||
       (item.name as string | undefined);
     const country = addr.country || undefined;
     const label = [city, country].filter(Boolean).join(", ");
@@ -73,9 +78,14 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
     debounceRef.current = setTimeout(async () => {
       try {
         setLoading(true);
-        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=7&q=${encodeURIComponent(
-          query.trim()
+
+        const originalQuery = query.trim();
+
+        // Simple search without restrictive parameters
+        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=15&q=${encodeURIComponent(
+          originalQuery
         )}`;
+
         const res = await fetch(url, {
           headers: {
             "User-Agent": "frentzy-app/1.0",
@@ -83,7 +93,24 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
           },
         });
         const data = (await res.json()) as Array<any>;
-        setSuggestions(data.map(mapSuggestion));
+
+        // Filter for cities, towns, and airports only
+        const cityResults = data.filter((item) => {
+          const cls = item.class;
+          const typ = item.type;
+          return (
+            (cls === "place" &&
+              ["city", "town", "village", "hamlet"].includes(typ)) ||
+            (cls === "aeroway" && ["aerodrome", "terminal"].includes(typ)) ||
+            (cls === "railway" && typ === "station") ||
+            (cls === "public_transport" && typ === "station")
+          );
+        });
+
+        const mappedSuggestions = cityResults
+          .map(mapSuggestion)
+          .filter(Boolean);
+        setSuggestions(mappedSuggestions);
       } catch {
         setSuggestions([]);
       } finally {

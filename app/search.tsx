@@ -44,6 +44,26 @@ export default function SearchResultsScreen() {
     }
   }, [latitude, longitude]);
 
+  // Helper function to calculate distance between two coordinates
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in kilometers
+  };
+
   const fetchCarRentals = async () => {
     try {
       setLoading(true);
@@ -61,7 +81,7 @@ export default function SearchResultsScreen() {
 
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Dummy API data for different cities
+      // Dummy API data for different cities with actual coordinates
       const cityCarData = {
         "New York": [
           {
@@ -70,7 +90,8 @@ export default function SearchResultsScreen() {
             type: vehicleType || "Luxury",
             price: 120,
             rating: 4.8,
-            distance: 1.2,
+            lat: 40.7589,
+            lon: -73.9851,
             available: true,
           },
           {
@@ -79,7 +100,8 @@ export default function SearchResultsScreen() {
             type: vehicleType || "SUV",
             price: 85,
             rating: 4.6,
-            distance: 8.5,
+            lat: 40.6782,
+            lon: -73.9442,
             available: true,
           },
           {
@@ -88,7 +110,8 @@ export default function SearchResultsScreen() {
             type: vehicleType || "Compact",
             price: 65,
             rating: 4.3,
-            distance: 15.2,
+            lat: 40.7282,
+            lon: -73.7949,
             available: true,
           },
           {
@@ -97,7 +120,8 @@ export default function SearchResultsScreen() {
             type: vehicleType || "Sedan",
             price: 75,
             rating: 4.4,
-            distance: 22.8,
+            lat: 40.8448,
+            lon: -73.8648,
             available: true,
           },
           {
@@ -106,7 +130,8 @@ export default function SearchResultsScreen() {
             type: vehicleType || "Van",
             price: 95,
             rating: 4.2,
-            distance: 35.1,
+            lat: 40.5795,
+            lon: -74.1502,
             available: true,
           },
         ],
@@ -117,7 +142,8 @@ export default function SearchResultsScreen() {
             type: vehicleType || "Luxury",
             price: 95,
             rating: 4.7,
-            distance: 0.8,
+            lat: 51.4994,
+            lon: -0.1245,
             available: true,
           },
           {
@@ -126,7 +152,8 @@ export default function SearchResultsScreen() {
             type: vehicleType || "Compact",
             price: 55,
             rating: 4.5,
-            distance: 6.3,
+            lat: 51.5455,
+            lon: -0.1622,
             available: true,
           },
           {
@@ -135,7 +162,8 @@ export default function SearchResultsScreen() {
             type: vehicleType || "Sedan",
             price: 70,
             rating: 4.4,
-            distance: 12.7,
+            lat: 51.48,
+            lon: 0.0,
             available: true,
           },
           {
@@ -144,7 +172,8 @@ export default function SearchResultsScreen() {
             type: vehicleType || "SUV",
             price: 80,
             rating: 4.3,
-            distance: 18.9,
+            lat: 51.5455,
+            lon: -0.0557,
             available: true,
           },
           {
@@ -153,43 +182,15 @@ export default function SearchResultsScreen() {
             type: vehicleType || "Economy",
             price: 45,
             rating: 4.1,
-            distance: 28.5,
-            available: true,
-          },
-        ],
-        default: [
-          {
-            id: "1",
-            name: "Downtown Car Rentals",
-            type: vehicleType || "Sedan",
-            price: 45,
-            rating: 4.5,
-            distance: 2.1,
-            available: true,
-          },
-          {
-            id: "2",
-            name: "Airport Premium Auto",
-            type: vehicleType || "SUV",
-            price: 65,
-            rating: 4.8,
-            distance: 18.5,
-            available: true,
-          },
-          {
-            id: "3",
-            name: "City Center Quick Rent",
-            type: vehicleType || "Compact",
-            price: 35,
-            rating: 4.2,
-            distance: 1.8,
+            lat: 51.3764,
+            lon: -0.0982,
             available: true,
           },
         ],
       };
 
       // Use coordinates for city matching instead of city names
-      let availableCars = cityCarData.default;
+      let availableCars: any[] = [];
 
       const lat = Number(latitude);
       const lon = Number(longitude);
@@ -204,16 +205,20 @@ export default function SearchResultsScreen() {
         availableCars = cityCarData.London;
         console.log("Using London cars - coordinates match");
       } else {
-        console.log("Using default cars - coordinates:", lat, lon);
+        console.log("No cars available for coordinates:", lat, lon);
+        availableCars = [];
       }
 
       // Filter cars within city boundaries using actual city radius
-      const carsInCity = availableCars.filter(
-        (car) => car.distance <= searchRadius
-      );
+      const carsInCity = availableCars.filter((car) => {
+        // Calculate actual distance from selected coordinates to each car location
+        const carDistance = calculateDistance(lat, lon, car.lat, car.lon);
+
+        // Check if car is within the city radius
+        return carDistance <= searchRadius;
+      });
 
       console.log("City Data:", cityData);
-      console.log("City Name:", cityName);
       console.log("Search Radius:", searchRadius);
       console.log("Available Cars Count:", availableCars.length);
       console.log("Filtered Cars Count:", carsInCity.length);
