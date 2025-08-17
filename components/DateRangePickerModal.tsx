@@ -3,12 +3,12 @@ import { buildMarkedDates, isBefore, to12HourFormat } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { Calendar, DateData } from "react-native-calendars";
 
@@ -107,7 +107,7 @@ export function DateRangePickerModal({
       <View style={styles.modalContainer}>
         <View style={styles.modalHeader}>
           <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={24} color="#11181C" />
+            <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
           <ThemedText type="title">Select dates & times</ThemedText>
           <View style={{ width: 24 }} />
@@ -124,29 +124,29 @@ export function DateRangePickerModal({
           hideExtraDays={false}
           showSixWeeks
           theme={{
-            calendarBackground: "#fff",
-            textSectionTitleColor: "#11181C",
-            monthTextColor: "#11181C",
-            dayTextColor: "#11181C",
-            todayTextColor: "#0a7ea4",
-            selectedDayBackgroundColor: "#0a7ea4",
-            selectedDayTextColor: "#fff",
-            arrowColor: "#0a7ea4",
+            calendarBackground: "#151718",
+            textSectionTitleColor: "#fff",
+            monthTextColor: "#fff",
+            dayTextColor: "#fff",
+            todayTextColor: "#fff",
+            selectedDayBackgroundColor: "#fff",
+            selectedDayTextColor: "#000",
+            arrowColor: "#fff",
             textDisabledColor: "#9BA1A6",
           }}
         />
 
         {/* Time Selection Section */}
         <View style={styles.timeSection}>
-          <ThemedText style={styles.timeSectionTitle}>Time</ThemedText>
+          <ThemedText style={[styles.timeSectionTitle, { color: "#fff" }]}>Time</ThemedText>
           <View style={styles.timeContainer}>
             <TouchableOpacity
               style={styles.timeInput}
               onPress={() => onOpenTimePicker("pickup")}
               activeOpacity={0.8}
             >
-              <ThemedText style={styles.timeLabel}>Pickup</ThemedText>
-              <ThemedText style={styles.timeValue}>
+              <ThemedText style={[styles.timeLabel, { color: "#9BA1A6" }]}>Pickup</ThemedText>
+              <ThemedText style={[styles.timeValue, { color: "#fff" }]}>
                 {to12HourFormat(pickupTime)}
               </ThemedText>
             </TouchableOpacity>
@@ -155,8 +155,8 @@ export function DateRangePickerModal({
               onPress={() => onOpenTimePicker("dropoff")}
               activeOpacity={0.8}
             >
-              <ThemedText style={styles.timeLabel}>Dropoff</ThemedText>
-              <ThemedText style={styles.timeValue}>
+              <ThemedText style={[styles.timeLabel, { color: "#9BA1A6" }]}>Dropoff</ThemedText>
+              <ThemedText style={[styles.timeValue, { color: "#fff" }]}>
                 {to12HourFormat(dropoffTime)}
               </ThemedText>
             </TouchableOpacity>
@@ -171,11 +171,18 @@ export function DateRangePickerModal({
             onPress={applyDates}
             style={[
               styles.applyButton,
-              (!tempStart || !tempEnd) && { backgroundColor: "#cfd6db" },
+              (!tempStart || !tempEnd) && { backgroundColor: "rgba(255,255,255,0.3)" },
             ]}
             disabled={!tempStart || !tempEnd}
           >
-            <ThemedText style={styles.applyButtonText}>Confirm</ThemedText>
+            <ThemedText
+              style={[
+                styles.applyButtonText,
+                (!tempStart || !tempEnd) && { color: "rgba(0,0,0,0.6)" },
+              ]}
+            >
+              Confirm
+            </ThemedText>
           </TouchableOpacity>
         </View>
       </View>
@@ -188,13 +195,13 @@ export function DateRangePickerModal({
         onRequestClose={() => setShowTimePicker(false)}
       >
         <View style={styles.timePickerOverlay}>
-          <View style={styles.timePickerContainer}>
+          <View style={[styles.timePickerContainer, { backgroundColor: "#151718" }]}>
             <View style={styles.timePickerHeader}>
-              <ThemedText style={styles.timePickerTitle}>
+              <ThemedText style={[styles.timePickerTitle, { color: "#fff" }]}>
                 {timePickerMode === "pickup" ? "Pickup Time" : "Dropoff Time"}
               </ThemedText>
               <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                <Ionicons name="close" size={24} color="#11181C" />
+                <Ionicons name="close" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
             <View style={styles.timePickerContent}>
@@ -204,7 +211,7 @@ export function DateRangePickerModal({
               >
                 {/* Early Morning Section */}
                 <View style={styles.timeSection}>
-                  <ThemedText style={styles.timeSectionHeader}>
+                  <ThemedText style={[styles.timeSectionHeader, { color: "#fff" }]}>
                     Early Morning
                   </ThemedText>
                   <View style={styles.timeOptionsContainer}>
@@ -262,7 +269,7 @@ export function DateRangePickerModal({
 
                 {/* Morning-Afternoon Section */}
                 <View style={styles.timeSection}>
-                  <ThemedText style={styles.timeSectionHeader}>
+                  <ThemedText style={[styles.timeSectionHeader, { color: "#fff" }]}>
                     Morning - Afternoon
                   </ThemedText>
                   <View style={styles.timeOptionsContainer}>
@@ -324,7 +331,7 @@ export function DateRangePickerModal({
 
                 {/* Evening Section */}
                 <View style={styles.timeSection}>
-                  <ThemedText style={styles.timeSectionHeader}>
+                  <ThemedText style={[styles.timeSectionHeader, { color: "#fff" }]}>
                     Evening
                   </ThemedText>
                   <View style={styles.timeOptionsContainer}>
@@ -388,7 +395,7 @@ export function DateRangePickerModal({
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#151718",
   },
   modalHeader: {
     paddingTop: Platform.OS === "ios" ? 56 : 24,
@@ -414,12 +421,12 @@ const styles = StyleSheet.create({
   },
   timeInput: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 8,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderWidth: 1,
-    borderColor: "#E6E8EB",
+    borderColor: "rgba(230, 232, 235, 0.14)",
   },
   timeLabel: {
     fontSize: 12,
@@ -427,9 +434,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   timeValue: {
-    fontSize: 14,
-    color: "#11181C",
-    fontWeight: "500",
+    fontSize: 18,
+    color: "#fff",
+    fontWeight: "700",
   },
   modalActions: {
     padding: 16,
@@ -440,23 +447,23 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#0a7ea4",
+    borderColor: "#fff",
     alignItems: "center",
     paddingVertical: 12,
   },
   clearButtonText: {
-    color: "#0a7ea4",
+    color: "#fff",
     fontWeight: "600",
   },
   applyButton: {
     flex: 1,
     borderRadius: 8,
-    backgroundColor: "#0a7ea4",
+    backgroundColor: "#fff",
     alignItems: "center",
     paddingVertical: 12,
   },
   applyButtonText: {
-    color: "#fff",
+    color: "#000",
     fontWeight: "600",
   },
   timePickerOverlay: {
@@ -466,10 +473,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   timePickerContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: "#151718",
     borderRadius: 12,
-    width: "90%",
-    height: "70%",
+    width: "95%",
+    height: "85%",
   },
   timePickerHeader: {
     flexDirection: "row",
@@ -498,26 +505,26 @@ const styles = StyleSheet.create({
   },
   timeOption: {
     width: "48%",
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 12,
     alignItems: "center",
     borderRadius: 8,
     marginBottom: 12,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
-    borderColor: "#E6E8EB",
+    borderColor: "rgba(230, 232, 235, 0.14)",
   },
   timeOptionSelected: {
-    backgroundColor: "#0a7ea4",
-    borderColor: "#0a7ea4",
+    backgroundColor: "#fff",
+    borderColor: "#fff",
   },
   timeOptionText: {
-    fontSize: 16,
-    color: "#11181C",
+    fontSize: 18,
+    color: "#fff",
     fontWeight: "500",
   },
   timeOptionTextSelected: {
-    color: "#fff",
+    color: "#000",
     fontWeight: "600",
   },
   timeSectionHeader: {

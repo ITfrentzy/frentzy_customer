@@ -1,31 +1,65 @@
+import { DateRangePickerModal } from "@/components/DateRangePickerModal";
+import { LocationSearch } from "@/components/LocationSearch";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { VehicleTypeGrid } from "@/components/VehicleTypeGrid";
+import type { Suggestion } from "@/types/location";
+import { formatDisplay, to12HourFormat, toDateString } from "@/utils/date";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
+  Image,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type CarRentalData = {
   id: string;
   name: string;
+  brand?: string;
   type: string;
   price: number;
   rating: number;
   distance: number;
   available: boolean;
+  year?: number;
+  imageUrl?: string;
+  seats?: number;
+  transmission?: "Automatic" | "Manual";
 };
 
 export default function SearchResultsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const modalMaxHeight = Math.round(Dimensions.get("window").height * 0.9);
   const [loading, setLoading] = useState(true);
   const [carRentals, setCarRentals] = useState<CarRentalData[]>([]);
   const [cityInfo, setCityInfo] = useState<any>(null);
+  const [showFilter, setShowFilter] = useState(false);
+  const [draftVehicle, setDraftVehicle] = useState<string | null>(
+    ((params as any).vehicleType as string) || null
+  );
+  const [draftPickup, setDraftPickup] = useState<Suggestion | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [draftStartDate, setDraftStartDate] = useState<string | null>(
+    (params as any).startDate || null
+  );
+  const [draftEndDate, setDraftEndDate] = useState<string | null>(
+    (params as any).endDate || null
+  );
+  const [draftPickupTime, setDraftPickupTime] = useState<string>(
+    ((params as any).pickupTime as string) || "10:00"
+  );
+  const [draftDropoffTime, setDraftDropoffTime] = useState<string>(
+    ((params as any).dropoffTime as string) || "10:00"
+  );
 
   const {
     startDate,
@@ -42,7 +76,7 @@ export default function SearchResultsScreen() {
     if (latitude && longitude) {
       fetchCarRentals();
     }
-  }, [latitude, longitude]);
+  }, [latitude, longitude, vehicleType]);
 
   // Helper function to calculate distance between two coordinates
   const calculateDistance = (
@@ -86,105 +120,165 @@ export default function SearchResultsScreen() {
         "New York": [
           {
             id: "ny1",
-            name: "Manhattan Premium Rentals",
-            type: vehicleType || "Luxury",
+            name: "Mercedes-Benz GLC",
+            brand: "Mercedes-Benz",
+            type: "Luxury",
             price: 120,
             rating: 4.8,
             lat: 40.7589,
             lon: -73.9851,
             available: true,
+            year: 2022,
+            imageUrl:
+              "https://images.unsplash.com/photo-1549921296-3fa90a7a77c2?w=800&auto=format&fit=crop&q=60",
+            seats: 5,
+            transmission: "Automatic",
           },
           {
             id: "ny2",
-            name: "Brooklyn Auto Center",
-            type: vehicleType || "SUV",
+            name: "Toyota RAV4",
+            brand: "Toyota",
+            type: "SUV",
             price: 85,
             rating: 4.6,
             lat: 40.6782,
             lon: -73.9442,
             available: true,
+            year: 2021,
+            imageUrl:
+              "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=60",
+            seats: 5,
+            transmission: "Automatic",
           },
           {
             id: "ny3",
-            name: "Queens Quick Rent",
-            type: vehicleType || "Compact",
+            name: "Honda Civic",
+            brand: "Honda",
+            type: "EV",
             price: 65,
             rating: 4.3,
             lat: 40.7282,
             lon: -73.7949,
             available: true,
+            year: 2020,
+            imageUrl:
+              "https://images.unsplash.com/photo-1502877338535-766e1452684a?w=800&auto=format&fit=crop&q=60",
+            seats: 5,
+            transmission: "Manual",
           },
           {
             id: "ny4",
-            name: "Bronx Business Cars",
-            type: vehicleType || "Sedan",
+            name: "BMW 3 Series",
+            brand: "BMW",
+            type: "Sedan",
             price: 75,
             rating: 4.4,
             lat: 40.8448,
             lon: -73.8648,
             available: true,
+            year: 2019,
+            imageUrl:
+              "https://images.unsplash.com/photo-1542367597-8849ebf6ccda?w=800&auto=format&fit=crop&q=60",
+            seats: 5,
+            transmission: "Automatic",
           },
           {
             id: "ny5",
-            name: "Staten Island Motors",
-            type: vehicleType || "Van",
+            name: "Ford Transit",
+            brand: "Ford",
+            type: "Van",
             price: 95,
             rating: 4.2,
             lat: 40.5795,
             lon: -74.1502,
             available: true,
+            year: 2023,
+            imageUrl:
+              "https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800&auto=format&fit=crop&q=60",
+            seats: 8,
+            transmission: "Automatic",
           },
         ],
         London: [
           {
             id: "ld1",
-            name: "Westminster Car Rentals",
-            type: vehicleType || "Luxury",
+            name: "Audi A6",
+            brand: "Audi",
+            type: "Luxury",
             price: 95,
             rating: 4.7,
             lat: 51.4994,
             lon: -0.1245,
             available: true,
+            year: 2022,
+            imageUrl:
+              "https://images.unsplash.com/photo-1550355291-bbee04a92027?w=800&auto=format&fit=crop&q=60",
+            seats: 5,
+            transmission: "Automatic",
           },
           {
             id: "ld2",
-            name: "Camden Auto Services",
-            type: vehicleType || "Compact",
+            name: "Hyundai i30",
+            brand: "Hyundai",
+            type: "Compact",
             price: 55,
             rating: 4.5,
             lat: 51.5455,
             lon: -0.1622,
             available: true,
+            year: 2020,
+            imageUrl:
+              "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=800&auto=format&fit=crop&q=60",
+            seats: 5,
+            transmission: "Manual",
           },
           {
             id: "ld3",
-            name: "Greenwich Motors",
-            type: vehicleType || "Sedan",
+            name: "Nissan Qashqai",
+            brand: "Nissan",
+            type: "Sedan",
             price: 70,
             rating: 4.4,
             lat: 51.48,
             lon: 0.0,
             available: true,
+            year: 2021,
+            imageUrl:
+              "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?w=800&auto=format&fit=crop&q=60",
+            seats: 5,
+            transmission: "Automatic",
           },
           {
             id: "ld4",
-            name: "Hackney Rentals",
-            type: vehicleType || "SUV",
+            name: "Kia Sportage",
+            brand: "Kia",
+            type: "SUV",
             price: 80,
             rating: 4.3,
             lat: 51.5455,
             lon: -0.0557,
             available: true,
+            year: 2019,
+            imageUrl:
+              "https://images.unsplash.com/photo-1471478331149-c72f17e33c73?w=800&auto=format&fit=crop&q=60",
+            seats: 5,
+            transmission: "Automatic",
           },
           {
             id: "ld5",
-            name: "Croydon Auto Center",
-            type: vehicleType || "Economy",
+            name: "Volkswagen Golf",
+            brand: "Volkswagen",
+            type: "Economy",
             price: 45,
             rating: 4.1,
             lat: 51.3764,
             lon: -0.0982,
             available: true,
+            year: 2023,
+            imageUrl:
+              "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&auto=format&fit=crop&q=60",
+            seats: 5,
+            transmission: "Manual",
           },
         ],
       };
@@ -209,21 +303,41 @@ export default function SearchResultsScreen() {
         availableCars = [];
       }
 
-      // Filter cars within city boundaries using actual city radius
-      const carsInCity = availableCars.filter((car) => {
-        // Calculate actual distance from selected coordinates to each car location
-        const carDistance = calculateDistance(lat, lon, car.lat, car.lon);
+      // Compute distance for each car and filter within city boundaries
+      // Respect selected vehicle type if provided
+      const filteredByType = (vehicleType
+        ? availableCars.filter((c) =>
+            String(c.type).toLowerCase() === String(vehicleType).toLowerCase()
+          )
+        : availableCars) as any[];
 
-        // Check if car is within the city radius
-        return carDistance <= searchRadius;
-      });
+      const carsWithDistance = filteredByType.map((car) => ({
+        ...car,
+        distance: calculateDistance(lat, lon, car.lat, car.lon),
+      }));
+
+      const carsInCity = carsWithDistance.filter(
+        (car) => car.distance <= searchRadius
+      );
 
       console.log("City Data:", cityData);
       console.log("Search Radius:", searchRadius);
       console.log("Available Cars Count:", availableCars.length);
       console.log("Filtered Cars Count:", carsInCity.length);
 
-      setCarRentals(carsInCity as CarRentalData[]);
+      setCarRentals(
+        carsInCity.map((car) => ({
+          id: car.id,
+          name: car.name,
+          type: car.type,
+          price: car.price,
+          rating: car.rating,
+          distance: Math.round(car.distance * 10) / 10,
+          available: car.available,
+          year: car.year,
+          imageUrl: car.imageUrl,
+        })) as CarRentalData[]
+      );
     } catch (error) {
       console.error("Error fetching car rentals:", error);
     } finally {
@@ -282,42 +396,51 @@ export default function SearchResultsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <ThemedText style={styles.backText}>← Back</ThemedText>
-        </TouchableOpacity>
-        <ThemedText style={styles.title}>Search Results</ThemedText>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }] }>
+        <View style={styles.headerBar}>
+          <View style={styles.headerSide}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <ThemedText style={styles.title}>Search Results</ThemedText>
+          <View style={styles.headerSide} />
+        </View>
+      </View>
+
+      {/* Static results header (title + filter) */}
+      <View style={styles.resultsHeaderWrapper}>
+        <View style={styles.resultsHeaderRow}>
+          <ThemedText style={styles.resultsTitle}>
+            Available Cars ({carRentals.length})
+          </ThemedText>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => {
+              setDraftVehicle(((params as any).vehicleType as string) || null);
+              setDraftStartDate(((params as any).startDate as string) || null);
+              setDraftEndDate(((params as any).endDate as string) || null);
+              setDraftPickupTime(((params as any).pickupTime as string) || "10:00");
+              setDraftDropoffTime(((params as any).dropoffTime as string) || "10:00");
+              const latStr = (params as any).latitude as string;
+              const lonStr = (params as any).longitude as string;
+              const labelStr = (params as any).pickupLocation as string;
+              if (latStr && lonStr) {
+                setDraftPickup({ id: "current", label: labelStr || "", lat: Number(latStr), lon: Number(lonStr), kind: "city" });
+              } else {
+                setDraftPickup(null);
+              }
+              setShowFilter(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open filters"
+          >
+            <Ionicons name="options-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.searchSummary}>
-          <ThemedText style={styles.summaryTitle}>Search Criteria</ThemedText>
-          <ThemedText style={styles.summaryText}>
-            Location: {pickupLocation || "Not selected"}
-          </ThemedText>
-          <ThemedText style={styles.summaryText}>
-            Coordinates: {latitude}, {longitude}
-          </ThemedText>
-          <ThemedText style={styles.summaryText}>
-            Search Radius:{" "}
-            {cityInfo
-              ? `${cityInfo.radius} km (${cityInfo.name})`
-              : "Calculating..."}
-          </ThemedText>
-          <ThemedText style={styles.summaryText}>
-            Dates: {startDate || "Not selected"} - {endDate || "Not selected"}
-          </ThemedText>
-          <ThemedText style={styles.summaryText}>
-            Times: {pickupTime || "Not selected"} -{" "}
-            {dropoffTime || "Not selected"}
-          </ThemedText>
-          <ThemedText style={styles.summaryText}>
-            Vehicle: {vehicleType || "Not selected"}
-          </ThemedText>
-        </View>
 
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -340,31 +463,147 @@ export default function SearchResultsScreen() {
           </View>
         ) : (
           <View style={styles.resultsContainer}>
-            <ThemedText style={styles.resultsTitle}>
-              Available Cars ({carRentals.length})
-            </ThemedText>
             {carRentals.map((car) => (
               <View key={car.id} style={styles.carItem}>
-                <View style={styles.carInfo}>
-                  <ThemedText style={styles.carName}>{car.name}</ThemedText>
-                  <ThemedText style={styles.carType}>{car.type}</ThemedText>
-                  <ThemedText style={styles.carDistance}>
-                    {car.distance} km away
+                <Image
+                  source={{
+                    uri:
+                      car.imageUrl ||
+                      "https://via.placeholder.com/120x80.png?text=Car",
+                  }}
+                  style={styles.carImage}
+                  resizeMode="cover"
+                />
+                <View style={[styles.carInfo, styles.cardBody]}>
+                  <View style={styles.carHeaderRow}>
+                    <View style={styles.chipsRow}>
+                      <View style={styles.typeChip}>
+                        <ThemedText style={styles.typeChipText} numberOfLines={1}>
+                          {car.type}
+                        </ThemedText>
+                      </View>
+                    </View>
+                    <View style={styles.pricePill}>
+                      <ThemedText style={styles.priceValue}>${car.price}</ThemedText>
+                      <ThemedText style={styles.priceUnit}>/day</ThemedText>
+                    </View>
+                  </View>
+                  <ThemedText style={styles.carName} numberOfLines={1}>
+                    {car.name}
+                    {car.brand ? ` · ${car.brand}` : ""}
                   </ThemedText>
-                </View>
-                <View style={styles.carPricing}>
-                  <ThemedText style={styles.carPrice}>
-                    ${car.price}/day
-                  </ThemedText>
-                  <ThemedText style={styles.carRating}>
-                    ★ {car.rating}
-                  </ThemedText>
+                  <View style={styles.specRow}>
+                    <View style={styles.specItem}>
+                      <Ionicons name="person" size={14} color="#9BA1A6" />
+                      <ThemedText style={styles.specText}>{car.seats ?? 5}</ThemedText>
+                    </View>
+                    <View style={styles.specItem}>
+                      <Ionicons name="settings" size={14} color="#9BA1A6" />
+                      <ThemedText style={styles.specText}>{car.transmission ?? "Automatic"}</ThemedText>
+                    </View>
+                    <View style={styles.specItem}>
+                      <Ionicons name="car" size={14} color="#9BA1A6" />
+                      <ThemedText style={styles.specText}>{car.year ?? ""}</ThemedText>
+                    </View>
+                  </View>
                 </View>
               </View>
             ))}
           </View>
         )}
+
       </ScrollView>
+
+      {showFilter && (
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalCard,
+              { paddingBottom: Math.max(insets.bottom, 8), maxHeight: modalMaxHeight },
+            ]}
+          >
+            <View style={styles.modalHeaderRow}>
+              <ThemedText style={styles.filterTitle}>Edit Filters</ThemedText>
+              <TouchableOpacity onPress={() => setShowFilter(false)}>
+                <Ionicons name="close" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={{ flexGrow: 0 }}
+              contentContainerStyle={{ paddingBottom: 12 }}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.filterSection}>
+                <LocationSearch
+                  initial={draftPickup}
+                  onSelect={(s) => setDraftPickup(s)}
+                />
+              </View>
+              <View style={styles.filterSection}>
+                <ThemedText style={styles.filterLabel}>Dates</ThemedText>
+                <TouchableOpacity
+                  style={styles.rangeInputContainer}
+                  onPress={() => setShowCalendar(true)}
+                  activeOpacity={0.8}
+                >
+                  <ThemedText style={styles.dateInputText}>
+                    {draftStartDate && draftEndDate
+                      ? `${formatDisplay(draftStartDate)} ${to12HourFormat(draftPickupTime)} – ${formatDisplay(draftEndDate)} ${to12HourFormat(draftDropoffTime)}`
+                      : "Select dates"}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+              <VehicleTypeGrid
+                selectedVehicle={draftVehicle}
+                onVehicleSelect={setDraftVehicle as any}
+              />
+            </ScrollView>
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={styles.modalButtonSecondary}
+                onPress={() => setShowFilter(false)}
+              >
+                <ThemedText style={styles.modalButtonSecondaryText}>Cancel</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButtonPrimary}
+                onPress={() => {
+                  router.setParams({
+                    startDate: draftStartDate || "",
+                    endDate: draftEndDate || "",
+                    pickupTime: draftPickupTime || "",
+                    dropoffTime: draftDropoffTime || "",
+                    pickupLocation: draftPickup?.label || (pickupLocation as string) || "",
+                    latitude: draftPickup ? String(draftPickup.lat) : ((latitude as string) || ""),
+                    longitude: draftPickup ? String(draftPickup.lon) : ((longitude as string) || ""),
+                    vehicleType: draftVehicle || "",
+                  });
+                  setShowFilter(false);
+                }}
+              >
+                <ThemedText style={styles.modalButtonPrimaryText}>Apply</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      <DateRangePickerModal
+        visible={showCalendar}
+        initialStart={draftStartDate}
+        initialEnd={draftEndDate}
+        initialPickupTime={draftPickupTime}
+        initialDropoffTime={draftDropoffTime}
+        minDate={toDateString(new Date())}
+        onClose={() => setShowCalendar(false)}
+        onConfirm={(s, e, pt, dt) => {
+          setDraftStartDate(s);
+          setDraftEndDate(e);
+          setDraftPickupTime(pt);
+          setDraftDropoffTime(dt);
+          setShowCalendar(false);
+        }}
+      />
     </ThemedView>
   );
 }
@@ -375,14 +614,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#151718",
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "column",
     paddingHorizontal: 20,
-    paddingTop: 60,
     paddingBottom: 20,
   },
+  headerBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerSide: {
+    width: 64,
+  },
   backButton: {
-    marginRight: 20,
+    paddingVertical: 8,
+    paddingRight: 12,
   },
   backText: {
     fontSize: 16,
@@ -392,28 +638,25 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     color: "#fff",
+    textAlign: "center",
   },
   content: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
   },
-  searchSummary: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  // removed summary card styles
+  filterButton: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 30,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+  summaryCompactText: {
+    fontSize: 14,
     color: "#fff",
-    marginBottom: 15,
-  },
-  summaryText: {
-    fontSize: 16,
-    color: "#fff",
-    marginBottom: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -429,51 +672,150 @@ const styles = StyleSheet.create({
   resultsContainer: {
     flex: 1,
   },
+  resultsHeaderWrapper: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
   resultsTitle: {
     fontSize: 20,
     fontWeight: "600",
     color: "#fff",
-    marginBottom: 20,
+    marginBottom: 0,
+  },
+  resultsHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
   },
   carItem: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 14,
+    padding: 0,
+    marginBottom: 16,
+    flexDirection: "column",
+    alignItems: "stretch",
+    borderWidth: 1,
+    borderColor: "rgba(230, 232, 235, 0.14)",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+    overflow: "hidden",
+  },
+  carItemSimple: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    padding: 16,
+    marginBottom: 12,
+  },
+  carImage: {
+    width: "100%",
+    height: 200,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    backgroundColor: "#333",
+  },
+  cardBody: {
+    padding: 12,
   },
   carInfo: {
     flex: 1,
   },
   carName: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 4,
-  },
-  carType: {
     fontSize: 16,
+    fontWeight: "700",
     color: "#fff",
-    marginBottom: 4,
+  },
+  carBrand: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.85)",
+    marginTop: 2,
   },
   carDistance: {
     fontSize: 14,
     color: "rgba(255, 255, 255, 0.7)",
   },
-  carPricing: {
-    alignItems: "flex-end",
+  carHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  chipsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  typeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    gap: 6,
+  },
+  typeChipText: {
+    color: "rgba(255, 255, 255, 0.95)",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  specRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 8,
+  },
+  specItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  specText: {
+    color: "#9BA1A6",
+    fontSize: 13,
+  },
+  carYear: {
+    fontSize: 14,
+    color: "#fff",
+    marginLeft: 8,
+  },
+  carYearSimple: {
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.75)",
+    marginTop: 4,
+  },
+  carFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   carPrice: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#fff",
-    marginBottom: 4,
   },
-  carRating: {
-    fontSize: 14,
-    color: "#FFD700",
+  pricePill: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  priceValue: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "800",
+    marginRight: 4,
+  },
+  priceUnit: {
+    color: "rgba(255, 255, 255, 0.75)",
+    fontSize: 12,
+    fontWeight: "700",
   },
   noResultsContainer: {
     flex: 1,
@@ -500,5 +842,83 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.7)",
     textAlign: "center",
     lineHeight: 20,
+  },
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  modalCard: {
+    backgroundColor: "#1b1e1f",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  modalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  filterSection: {
+    marginBottom: 16,
+  },
+  filterLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+    marginBottom: 8,
+  },
+  filterTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  modalButtonsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 4,
+  },
+  modalButtonSecondary: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  modalButtonSecondaryText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  modalButtonPrimary: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  modalButtonPrimaryText: {
+    color: "#151718",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  rangeInputContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  dateInputText: {
+    fontSize: 13,
+    color: "#151718",
   },
 });

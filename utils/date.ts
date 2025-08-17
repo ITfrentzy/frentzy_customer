@@ -2,11 +2,11 @@ export function formatDisplay(dateString: string | null): string {
   if (!dateString) return "";
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  }).format(date);
+  // Return Gregorian date in DD/MM/YYYY format
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const year = `${date.getFullYear()}`;
+  return `${day}/${month}/${year}`;
 }
 
 export function toDateString(date: Date): string {
@@ -30,8 +30,8 @@ export function buildMarkedDates(
   start?: string | null,
   end?: string | null
 ): Record<string, any> {
-  const color = "#0a7ea4";
-  const textColor = "#fff";
+  const color = "#fff";
+  const textColor = "#000";
   const marked: Record<string, any> = {};
   if (!start) return marked;
 

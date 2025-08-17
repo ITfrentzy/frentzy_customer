@@ -15,9 +15,10 @@ import {
 
 type LocationSearchProps = {
   onSelect: (suggestion: Suggestion) => void;
+  initial?: Suggestion | null;
 };
 
-export function LocationSearch({ onSelect }: LocationSearchProps) {
+export function LocationSearch({ onSelect, initial }: LocationSearchProps) {
   const [query, setQuery] = useState<string>("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -25,26 +26,31 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
   const [selected, setSelected] = useState<Suggestion | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const mapSuggestion = (item: any, idx: number): Suggestion => {
+  const mapSuggestion = (item: any, idx: number): Suggestion | null => {
     const cls = item.class as string | undefined;
     const typ = item.type as string | undefined;
     let kind: Suggestion["kind"] = "address";
 
-    // Only allow cities, towns, and airports - filter out regions, states, countries
-    if (cls === "aeroway" && (typ === "aerodrome" || typ === "terminal"))
-      kind = "airport";
-    else if (
+    // Allow cities/towns (including administrative boundaries), airports and stations. Filter out regions, states, countries, etc.
+    if (
       cls === "place" &&
       ["city", "town", "village", "hamlet"].includes(typ ?? "")
-    )
+    ) {
       kind = "city";
-    else if (
+    } else if (
+      cls === "boundary" &&
+      typ === "administrative" &&
+      ["city", "town"].includes((item.addresstype as string | undefined) ?? "")
+    ) {
+      kind = "city";
+    } else if (cls === "aeroway" && (typ === "aerodrome" || typ === "terminal")) {
+      kind = "airport";
+    } else if (
       (cls === "railway" && typ === "station") ||
       (cls === "public_transport" && typ === "station")
-    )
+    ) {
       kind = "station";
-    else {
-      // Filter out regions, states, countries, etc.
+    } else {
       return null;
     }
 
@@ -81,35 +87,69 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
 
         const originalQuery = query.trim();
 
-        // Simple search without restrictive parameters
-        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=15&q=${encodeURIComponent(
+        // Query both generic and structured city endpoints to improve partial matching
+        const urlQ = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=15&dedupe=1&q=${encodeURIComponent(
+          originalQuery
+        )}`;
+        const urlCity = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=15&dedupe=1&city=${encodeURIComponent(
           originalQuery
         )}`;
 
-        const res = await fetch(url, {
-          headers: {
-            "User-Agent": "frentzy-app/1.0",
-            Accept: "application/json",
-          },
-        });
-        const data = (await res.json()) as Array<any>;
+        const headers = {
+          "User-Agent": "frentzy-app/1.0",
+          Accept: "application/json",
+        } as const;
 
-        // Filter for cities, towns, and airports only
-        const cityResults = data.filter((item) => {
-          const cls = item.class;
-          const typ = item.type;
-          return (
-            (cls === "place" &&
-              ["city", "town", "village", "hamlet"].includes(typ)) ||
-            (cls === "aeroway" && ["aerodrome", "terminal"].includes(typ)) ||
+        const [resQ, resCity] = await Promise.all([
+          fetch(urlQ, { headers }),
+          fetch(urlCity, { headers }),
+        ]);
+
+        const [dataQ, dataCity] = (await Promise.all([
+          resQ.json(),
+          resCity.json(),
+        ])) as [Array<any>, Array<any>];
+
+        // Merge and deduplicate by place_id
+        const all = [...(dataQ || []), ...(dataCity || [])];
+        const uniqueByPlaceId = Array.from(
+          new Map(all.map((it) => [it.place_id ?? `${it.lat},${it.lon}`, it])).values()
+        );
+
+        // Filter for cities, towns (including administrative city/town), airports, and stations only
+        const cityResults = uniqueByPlaceId.filter((item) => {
+          const cls = item.class as string | undefined;
+          const typ = item.type as string | undefined;
+          const addresstype = item.addresstype as string | undefined;
+          const isPlaceCity =
+            cls === "place" && ["city", "town", "village", "hamlet"].includes(typ ?? "");
+          const isAdminCity =
+            cls === "boundary" && typ === "administrative" && ["city", "town"].includes(addresstype ?? "");
+          const isAirport = cls === "aeroway" && ["aerodrome", "terminal"].includes(typ ?? "");
+          const isStation =
             (cls === "railway" && typ === "station") ||
-            (cls === "public_transport" && typ === "station")
-          );
+            (cls === "public_transport" && typ === "station");
+          return isPlaceCity || isAdminCity || isAirport || isStation;
         });
 
         const mappedSuggestions = cityResults
           .map(mapSuggestion)
-          .filter(Boolean);
+          .filter((s): s is Suggestion => Boolean(s));
+
+        // Basic ranking to surface better partial matches
+        const qLower = originalQuery.toLowerCase();
+        mappedSuggestions.sort((a, b) => {
+          const aLabel = a.label.toLowerCase();
+          const bLabel = b.label.toLowerCase();
+          const aStarts = aLabel.startsWith(qLower) ? 1 : 0;
+          const bStarts = bLabel.startsWith(qLower) ? 1 : 0;
+          if (aStarts !== bStarts) return bStarts - aStarts;
+          const aIncludes = aLabel.includes(qLower) ? 1 : 0;
+          const bIncludes = bLabel.includes(qLower) ? 1 : 0;
+          if (aIncludes !== bIncludes) return bIncludes - aIncludes;
+          return aLabel.length - bLabel.length;
+        });
+
         setSuggestions(mappedSuggestions);
       } catch {
         setSuggestions([]);
@@ -121,6 +161,14 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [query, visible]);
+
+  // Seed initial value when provided
+  useEffect(() => {
+    if (initial) {
+      setSelected(initial);
+      setQuery(initial.label);
+    }
+  }, [initial]);
 
   const handleSelect = (s: Suggestion) => {
     setSelected(s);
@@ -187,7 +235,7 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setVisible(false)}>
-              <Ionicons name="close" size={24} color="#11181C" />
+              <Ionicons name="close" size={24} color="#fff" />
             </TouchableOpacity>
             <ThemedText type="title">Search location</ThemedText>
             <View style={{ width: 24 }} />
@@ -195,7 +243,7 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
 
           <View style={{ paddingHorizontal: 16 }}>
             <View style={styles.locationInputRowFull}>
-              <Ionicons name="search" size={18} color="#687076" />
+              <Ionicons name="search" size={18} color="#9BA1A6" />
               <TextInput
                 style={styles.locationInput}
                 placeholder="City, airport, station..."
@@ -227,7 +275,7 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
               style={styles.suggestionItem}
               onPress={useCurrentLocation}
             >
-              <Ionicons name="locate" size={18} color="#0a7ea4" />
+              <Ionicons name="locate" size={18} color="#9BA1A6" />
               <ThemedText style={styles.suggestionText}>
                 Use current location
               </ThemedText>
@@ -250,7 +298,7 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
                       : "location"
                   }
                   size={18}
-                  color="#687076"
+                  color="#9BA1A6"
                 />
                 <ThemedText style={styles.suggestionText} numberOfLines={2}>
                   {s.label}
@@ -347,7 +395,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#151718",
   },
   modalHeader: {
     paddingTop: Platform.OS === "ios" ? 56 : 24,

@@ -5,6 +5,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { VehicleTypeGrid } from "@/components/VehicleTypeGrid";
 import type { Suggestion } from "@/types/location";
 import { formatDisplay, to12HourFormat, toDateString } from "@/utils/date";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -20,6 +21,7 @@ export default function CarRentalScreen() {
   const [selectedVehicleType, setSelectedVehicleType] = useState<string | null>(
     null
   );
+  const [formKey, setFormKey] = useState<number>(0);
 
   // Time state
   const [pickupTime, setPickupTime] = useState<string>("10:00");
@@ -39,6 +41,20 @@ export default function CarRentalScreen() {
   };
 
   const today = toDateString(new Date());
+
+  // Reset form when screen regains focus (e.g., navigating back from results)
+  useFocusEffect(
+    React.useCallback(() => {
+      setStartDate(null);
+      setEndDate(null);
+      setPickupTime("10:00");
+      setDropoffTime("10:00");
+      setPickupLocation(null);
+      setSelectedVehicleType(null);
+      setShowCalendar(false);
+      setFormKey((k) => k + 1); // force remount of controlled subcomponents
+    }, [])
+  );
 
   // Location handler
   const onSelectPickup = (s: Suggestion) => {
@@ -81,7 +97,7 @@ export default function CarRentalScreen() {
       </View>
 
       <View style={styles.content}>
-        <LocationSearch onSelect={onSelectPickup} />
+        <LocationSearch key={formKey} onSelect={onSelectPickup} />
 
         {/* Date Section */}
         <View style={styles.section}>
