@@ -464,7 +464,32 @@ export default function SearchResultsScreen() {
         ) : (
           <View style={styles.resultsContainer}>
             {carRentals.map((car) => (
-              <View key={car.id} style={styles.carItem}>
+              <TouchableOpacity
+                key={car.id}
+                style={styles.carItem}
+                activeOpacity={0.85}
+                onPress={() =>
+                  router.push({
+                    pathname: "/vehicle/[id]",
+                    params: {
+                      id: car.id,
+                      name: car.name,
+                      brand: car.brand || "",
+                      price: String(car.price),
+                      year: String(car.year || ""),
+                      type: car.type,
+                      imageUrl: car.imageUrl || "",
+                      startDate: (startDate as string) || "",
+                      endDate: (endDate as string) || "",
+                      pickupTime: (pickupTime as string) || "",
+                      dropoffTime: (dropoffTime as string) || "",
+                      seats: String((car as any).seats || ""),
+                      transmission: String((car as any).transmission || ""),
+                      distance: String(car.distance || ""),
+                    },
+                  })
+                }
+              >
                 <Image
                   source={{
                     uri:
@@ -483,9 +508,18 @@ export default function SearchResultsScreen() {
                         </ThemedText>
                       </View>
                     </View>
-                    <View style={styles.pricePill}>
-                      <ThemedText style={styles.priceValue}>${car.price}</ThemedText>
-                      <ThemedText style={styles.priceUnit}>/day</ThemedText>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      {String(car.type || "").toLowerCase() === "ev" ? (
+                        <View style={styles.saveBadge}>
+                          <ThemedText style={styles.saveBadgeText}>Save 12%</ThemedText>
+                        </View>
+                      ) : null}
+                      <View style={styles.pricePill}>
+                        <ThemedText style={styles.priceValue}>
+                          ${String(car.type || "").toLowerCase() === "ev" ? Math.round(car.price * 0.88) : car.price}
+                        </ThemedText>
+                        <ThemedText style={styles.priceUnit}>/ day</ThemedText>
+                      </View>
                     </View>
                   </View>
                   <ThemedText style={styles.carName} numberOfLines={1}>
@@ -493,6 +527,10 @@ export default function SearchResultsScreen() {
                     {car.brand ? ` · ${car.brand}` : ""}
                   </ThemedText>
                   <View style={styles.specRow}>
+                    <View style={styles.specItem}>
+                      <Ionicons name="location" size={14} color="#9BA1A6" />
+                      <ThemedText style={styles.specText}>{car.distance} km away</ThemedText>
+                    </View>
                     <View style={styles.specItem}>
                       <Ionicons name="person" size={14} color="#9BA1A6" />
                       <ThemedText style={styles.specText}>{car.seats ?? 5}</ThemedText>
@@ -507,7 +545,7 @@ export default function SearchResultsScreen() {
                     </View>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -805,6 +843,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
+  },
+  saveBadge: {
+    backgroundColor: "#fff",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  saveBadgeText: {
+    color: "#000",
+    fontSize: 12,
+    fontWeight: "800",
   },
   priceValue: {
     color: "#fff",
