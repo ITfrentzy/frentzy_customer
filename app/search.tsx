@@ -3,9 +3,11 @@ import { LocationSearch } from "@/components/LocationSearch";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { VehicleTypeGrid } from "@/components/VehicleTypeGrid";
+import { supabase } from "@/lib/supabase";
 import type { Suggestion } from "@/types/location";
 import { formatDisplay, to12HourFormat, toDateString } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -60,6 +62,9 @@ export default function SearchResultsScreen() {
   const [draftDropoffTime, setDraftDropoffTime] = useState<string>(
     ((params as any).dropoffTime as string) || "10:00"
   );
+  const [deviceLat, setDeviceLat] = useState<number | null>(null);
+  const [deviceLon, setDeviceLon] = useState<number | null>(null);
+  const [deviceLocDenied, setDeviceLocDenied] = useState<boolean>(false);
 
   const {
     startDate,
@@ -70,13 +75,33 @@ export default function SearchResultsScreen() {
     latitude,
     longitude,
     vehicleType,
+    refreshKey,
   } = params;
 
   useEffect(() => {
+  
     if (latitude && longitude) {
       fetchCarRentals();
     }
-  }, [latitude, longitude, vehicleType]);
+  }, [latitude, longitude, vehicleType, startDate, endDate, pickupTime, dropoffTime, refreshKey]);
+
+  // Get device GPS location once for distance display
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          setDeviceLocDenied(true);
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({});
+        setDeviceLat(pos.coords.latitude);
+        setDeviceLon(pos.coords.longitude);
+      } catch (e) {
+        setDeviceLocDenied(true);
+      }
+    })();
+  }, []);
 
   // Helper function to calculate distance between two coordinates
   const calculateDistance = (
@@ -115,218 +140,129 @@ export default function SearchResultsScreen() {
 
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Dummy API data for different cities with actual coordinates
-      const cityCarData = {
-        "New York": [
-          {
-            id: "ny1",
-            name: "Mercedes-Benz GLC",
-            brand: "Mercedes-Benz",
-            type: "Luxury",
-            price: 120,
-            rating: 4.8,
-            lat: 40.7589,
-            lon: -73.9851,
-            available: true,
-            year: 2022,
-            imageUrl:
-              "https://images.unsplash.com/photo-1549921296-3fa90a7a77c2?w=800&auto=format&fit=crop&q=60",
-            seats: 5,
-            transmission: "Automatic",
-          },
-          {
-            id: "ny2",
-            name: "Toyota RAV4",
-            brand: "Toyota",
-            type: "SUV",
-            price: 85,
-            rating: 4.6,
-            lat: 40.6782,
-            lon: -73.9442,
-            available: true,
-            year: 2021,
-            imageUrl:
-              "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=60",
-            seats: 5,
-            transmission: "Automatic",
-          },
-          {
-            id: "ny3",
-            name: "Honda Civic",
-            brand: "Honda",
-            type: "EV",
-            price: 65,
-            rating: 4.3,
-            lat: 40.7282,
-            lon: -73.7949,
-            available: true,
-            year: 2020,
-            imageUrl:
-              "https://images.unsplash.com/photo-1502877338535-766e1452684a?w=800&auto=format&fit=crop&q=60",
-            seats: 5,
-            transmission: "Manual",
-          },
-          {
-            id: "ny4",
-            name: "BMW 3 Series",
-            brand: "BMW",
-            type: "Sedan",
-            price: 75,
-            rating: 4.4,
-            lat: 40.8448,
-            lon: -73.8648,
-            available: true,
-            year: 2019,
-            imageUrl:
-              "https://images.unsplash.com/photo-1542367597-8849ebf6ccda?w=800&auto=format&fit=crop&q=60",
-            seats: 5,
-            transmission: "Automatic",
-          },
-          {
-            id: "ny5",
-            name: "Ford Transit",
-            brand: "Ford",
-            type: "Van",
-            price: 95,
-            rating: 4.2,
-            lat: 40.5795,
-            lon: -74.1502,
-            available: true,
-            year: 2023,
-            imageUrl:
-              "https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800&auto=format&fit=crop&q=60",
-            seats: 8,
-            transmission: "Automatic",
-          },
-        ],
-        London: [
-          {
-            id: "ld1",
-            name: "Audi A6",
-            brand: "Audi",
-            type: "Luxury",
-            price: 95,
-            rating: 4.7,
-            lat: 51.4994,
-            lon: -0.1245,
-            available: true,
-            year: 2022,
-            imageUrl:
-              "https://images.unsplash.com/photo-1550355291-bbee04a92027?w=800&auto=format&fit=crop&q=60",
-            seats: 5,
-            transmission: "Automatic",
-          },
-          {
-            id: "ld2",
-            name: "Hyundai i30",
-            brand: "Hyundai",
-            type: "Compact",
-            price: 55,
-            rating: 4.5,
-            lat: 51.5455,
-            lon: -0.1622,
-            available: true,
-            year: 2020,
-            imageUrl:
-              "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=800&auto=format&fit=crop&q=60",
-            seats: 5,
-            transmission: "Manual",
-          },
-          {
-            id: "ld3",
-            name: "Nissan Qashqai",
-            brand: "Nissan",
-            type: "Sedan",
-            price: 70,
-            rating: 4.4,
-            lat: 51.48,
-            lon: 0.0,
-            available: true,
-            year: 2021,
-            imageUrl:
-              "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?w=800&auto=format&fit=crop&q=60",
-            seats: 5,
-            transmission: "Automatic",
-          },
-          {
-            id: "ld4",
-            name: "Kia Sportage",
-            brand: "Kia",
-            type: "SUV",
-            price: 80,
-            rating: 4.3,
-            lat: 51.5455,
-            lon: -0.0557,
-            available: true,
-            year: 2019,
-            imageUrl:
-              "https://images.unsplash.com/photo-1471478331149-c72f17e33c73?w=800&auto=format&fit=crop&q=60",
-            seats: 5,
-            transmission: "Automatic",
-          },
-          {
-            id: "ld5",
-            name: "Volkswagen Golf",
-            brand: "Volkswagen",
-            type: "Economy",
-            price: 45,
-            rating: 4.1,
-            lat: 51.3764,
-            lon: -0.0982,
-            available: true,
-            year: 2023,
-            imageUrl:
-              "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&auto=format&fit=crop&q=60",
-            seats: 5,
-            transmission: "Manual",
-          },
-        ],
-      };
+      // Try to fetch cars from Supabase first with nested branch and operation times
+      // Compute bounding box (in degrees) for branch coords based on searchRadius (km)
+      const centerLat = Number(latitude);
+      const centerLon = Number(longitude);
+      const deltaLat = searchRadius / 111; // ~111 km per degree latitude
+      const deltaLon = searchRadius / (111 * Math.cos((centerLat * Math.PI) / 180));
+      const minLat = centerLat - deltaLat;
+      const maxLat = centerLat + deltaLat;
+      const minLon = centerLon - deltaLon;
+      const maxLon = centerLon + deltaLon;
 
-      // Use coordinates for city matching instead of city names
-      let availableCars: any[] = [];
+      console.log("minLat", minLat);
+      console.log("maxLat", maxLat);
+      console.log("minLon", minLon);
+      console.log("maxLon", maxLon);
 
-      const lat = Number(latitude);
-      const lon = Number(longitude);
-
-      // New York coordinates (roughly 40.7, -74.0)
-      if (lat >= 40.5 && lat <= 40.9 && lon >= -74.3 && lon <= -73.7) {
-        availableCars = cityCarData["New York"];
-        console.log("Using New York cars - coordinates match");
-      }
-      // London coordinates (roughly 51.5, -0.1)
-      else if (lat >= 51.3 && lat <= 51.7 && lon >= -0.5 && lon <= 0.3) {
-        availableCars = cityCarData.London;
-        console.log("Using London cars - coordinates match");
-      } else {
-        console.log("No cars available for coordinates:", lat, lon);
-        availableCars = [];
-      }
-
-      // Compute distance for each car and filter within city boundaries
-      // Respect selected vehicle type if provided
-      const filteredByType = (vehicleType
-        ? availableCars.filter((c) =>
-            String(c.type).toLowerCase() === String(vehicleType).toLowerCase()
+      let query = supabase
+        .from("cars")
+        .select(`
+          *,
+          branch:branch_id!inner (
+            id,
+            branch_name,
+            location,
+            longitude,
+            latitude
           )
-        : availableCars) as any[];
+        `)
+  
+        // Geo bounding box by branch coordinates (API-side filtering only)
+    
 
-      const carsWithDistance = filteredByType.map((car) => ({
+      // Filter by car_type if provided
+      console.log("type", vehicleType);
+      if (vehicleType) {
+       query = query.eq("car_type", String(vehicleType).toUpperCase());
+      }
+
+      query = query.gte("branch.latitude", minLat)
+      .lte("branch.latitude", maxLat)
+      .gte("branch.longitude", minLon)
+      .lte("branch.longitude", maxLon);
+
+      // Helper to normalize route params that may be string | string[]
+      const getParam = (p: string | string[] | undefined): string | undefined =>
+        Array.isArray(p) ? p[0] : p;
+
+      // Filter by branch location name if available
+      const pickupLocationVal = getParam(pickupLocation as any);
+      if (pickupLocationVal) {
+       // query = query.ilike("branch.location", `%${pickupLocationVal}%`);
+      }
+
+      // Filter by pickup day/time against branch operation times
+      const startDateVal = getParam(startDate as any);
+      const pickupTimeVal = getParam(pickupTime as any);
+      const dropoffTimeVal = getParam(dropoffTime as any);
+      if (startDateVal && (pickupTimeVal || dropoffTimeVal)) {
+        const pickupDateObj = new Date(String(startDateVal));
+        const dayName = pickupDateObj
+          .toLocaleDateString("en-US", { weekday: "long" })
+          .toLowerCase();
+        const normalizeTime = (t: string | null | undefined) => (t && String(t).length === 5 ? `${t}:00` : String(t || ""));
+        const pickupT = normalizeTime(pickupTimeVal || "");
+        const dropoffT = normalizeTime(dropoffTimeVal || pickupTimeVal || "");
+
+        // Ensure branch is open at least for the pickup time window
+
+      }
+
+      const { data: cars, error } = await query.limit(50);
+
+      if (error) {
+        console.log("Supabase cars fetch error:", error.message);
+      }
+      
+
+      const dbCars: any[] = (cars || []).map((c: any) => ({
+        id: c.id,
+        name: `${c.car_maker ?? "Car"} ${c.model_name ?? "Model"}`.trim(),
+        brand: c.car_maker ?? undefined,
+        type: c.car_type ?? "Sedan",
+        price: Number(c.rental_price ?? 60),
+        rating: 4.5,
+        // Prefer branch coordinates if present; otherwise fall back to current search location
+        lat: c?.branch?.latitude != null ? Number(c.branch.latitude) : Number(latitude),
+        lon: c?.branch?.longitude != null ? Number(c.branch.longitude) : Number(longitude),
+        available: Boolean(c.availability_status ?? true),
+        year: c.model_year ?? undefined,
+        imageUrl:
+          Array.isArray(c.car_photos) && c.car_photos.length > 0
+            ? String(c.car_photos[0])
+            : undefined,
+        seats: 5,
+        transmission: "Automatic",
+        // Enrich from branch
+        branchName: c?.branch?.branch_name,
+        branchLocation: c?.branch?.location,
+        branchHours: Array.isArray(c?.branch?.branch_operation_days_and_times)
+          ? c.branch.branch_operation_days_and_times
+          : [],
+      }));
+
+      // Coordinates for distance calculation (prefer device GPS)
+      const lat = deviceLat ?? Number(latitude);
+      const lon = deviceLon ?? Number(longitude);
+
+      // Prefer DB cars only (no local filtering)
+      const sourceCars = dbCars;
+
+      // Compute distance for display only
+      const carsWithDistance = sourceCars.map((car) => ({
         ...car,
         distance: calculateDistance(lat, lon, car.lat, car.lon),
       }));
 
-      const carsInCity = carsWithDistance.filter(
-        (car) => car.distance <= searchRadius
-      );
-
       console.log("City Data:", cityData);
       console.log("Search Radius:", searchRadius);
-      console.log("Available Cars Count:", availableCars.length);
-      console.log("Filtered Cars Count:", carsInCity.length);
+      console.log("DB Cars Count:", dbCars.length);
+      console.log("Cars Count (after API filters):", carsWithDistance.length);
 
       setCarRentals(
-        carsInCity.map((car) => ({
+        carsWithDistance.map((car) => ({
           id: car.id,
           name: car.name,
           type: car.type,
@@ -606,6 +542,7 @@ export default function SearchResultsScreen() {
               <TouchableOpacity
                 style={styles.modalButtonPrimary}
                 onPress={() => {
+                  carRentals.length = 0;
                   router.setParams({
                     startDate: draftStartDate || "",
                     endDate: draftEndDate || "",
@@ -615,6 +552,7 @@ export default function SearchResultsScreen() {
                     latitude: draftPickup ? String(draftPickup.lat) : ((latitude as string) || ""),
                     longitude: draftPickup ? String(draftPickup.lon) : ((longitude as string) || ""),
                     vehicleType: draftVehicle || "",
+                    refreshKey: String(Date.now()),
                   });
                   setShowFilter(false);
                 }}
@@ -640,6 +578,14 @@ export default function SearchResultsScreen() {
           setDraftPickupTime(pt);
           setDraftDropoffTime(dt);
           setShowCalendar(false);
+          // Immediately refresh results by updating route params
+          router.setParams({
+            startDate: s || "",
+            endDate: e || "",
+            pickupTime: pt || "",
+            dropoffTime: dt || "",
+            refreshKey: String(Date.now()),
+          });
         }}
       />
     </ThemedView>
