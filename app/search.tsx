@@ -688,8 +688,8 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "700",
     color: "#fff",
     textAlign: "center",
   },

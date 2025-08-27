@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   headerSide: { width: 64 },
   backButton: { paddingVertical: 8, paddingRight: 12 },
-  headerTitle: { color: "#fff", fontSize: 24, fontWeight: "bold", textAlign: "center" },
+  headerTitle: { color: "#fff", fontSize: 16, fontWeight: "700", textAlign: "center" },
   label: { color: "#9BA1A6", fontSize: 12, marginTop: 8 },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
