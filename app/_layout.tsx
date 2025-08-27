@@ -1,7 +1,7 @@
 import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
+    DarkTheme,
+    DefaultTheme,
+    ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -21,6 +21,7 @@ function RouterStack() {
       <Stack.Screen name="search" options={{ headerShown: false }} />
       <Stack.Screen name="vehicle/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="profile/edit" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
