@@ -1,16 +1,18 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { useRouter } from "expo-router";
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 export default function AccountScreen() {
+  const router = useRouter();
   return (
     <ThemedView style={styles.container}>
       <View style={styles.content}>
         <ThemedText style={styles.title}>My Account</ThemedText>
-        <ThemedText style={styles.subtitle}>
-          Profile and settings will appear here
-        </ThemedText>
+        <TouchableOpacity style={styles.button} onPress={() => router.push("/profile/edit")}> 
+          <ThemedText style={styles.buttonText}>Edit personal information</ThemedText>
+        </TouchableOpacity>
       </View>
     </ThemedView>
   );
@@ -37,5 +39,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#9BA1A6",
     textAlign: "center",
+  },
+  button: {
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginTop: 16,
+  },
+  buttonText: {
+    color: "#151718",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

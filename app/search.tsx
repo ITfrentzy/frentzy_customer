@@ -16,6 +16,7 @@ import {
   Image,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -34,6 +35,7 @@ type CarRentalData = {
   imageUrl?: string;
   seats?: number;
   transmission?: "Automatic" | "Manual";
+  companyLogo?: string;
 };
 
 export default function SearchResultsScreen() {
@@ -62,6 +64,12 @@ export default function SearchResultsScreen() {
   const [draftDropoffTime, setDraftDropoffTime] = useState<string>(
     ((params as any).dropoffTime as string) || "10:00"
   );
+  const [draftMinPrice, setDraftMinPrice] = useState<string>(
+    ((params as any).minPrice as string) || ""
+  );
+  const [draftMaxPrice, setDraftMaxPrice] = useState<string>(
+    ((params as any).maxPrice as string) || ""
+  );
   const [deviceLat, setDeviceLat] = useState<number | null>(null);
   const [deviceLon, setDeviceLon] = useState<number | null>(null);
   const [deviceLocDenied, setDeviceLocDenied] = useState<boolean>(false);
@@ -76,6 +84,8 @@ export default function SearchResultsScreen() {
     longitude,
     vehicleType,
     refreshKey,
+    minPrice,
+    maxPrice,
   } = params;
 
   useEffect(() => {
@@ -83,7 +93,7 @@ export default function SearchResultsScreen() {
     if (latitude && longitude) {
       fetchCarRentals();
     }
-  }, [latitude, longitude, vehicleType, startDate, endDate, pickupTime, dropoffTime, refreshKey]);
+  }, [latitude, longitude, vehicleType, startDate, endDate, pickupTime, dropoffTime, minPrice, maxPrice, refreshKey]);
 
   // Get device GPS location once for distance display
   useEffect(() => {
@@ -165,7 +175,18 @@ export default function SearchResultsScreen() {
             branch_name,
             location,
             longitude,
-            latitude
+            latitude,
+            company:service_provider_company!company_id(company_logo),
+            pickup_hours:branch_operation_days_and_times!inner(
+              day,
+              from_time,
+              to_time
+            ),
+            dropoff_hours:branch_operation_days_and_times!inner(
+              day,
+              from_time,
+              to_time
+            )
           )
         `)
   
@@ -183,6 +204,16 @@ export default function SearchResultsScreen() {
       .gte("branch.longitude", minLon)
       .lte("branch.longitude", maxLon);
 
+      // Price range API-side
+      const minPriceVal = (Array.isArray(minPrice) ? minPrice[0] : (minPrice as string | undefined));
+      const maxPriceVal = (Array.isArray(maxPrice) ? maxPrice[0] : (maxPrice as string | undefined));
+      if (minPriceVal) {
+        query = query.gte("rental_price", Number(minPriceVal));
+      }
+      if (maxPriceVal) {
+        query = query.lte("rental_price", Number(maxPriceVal));
+      }
+
       // Helper to normalize route params that may be string | string[]
       const getParam = (p: string | string[] | undefined): string | undefined =>
         Array.isArray(p) ? p[0] : p;
@@ -193,21 +224,31 @@ export default function SearchResultsScreen() {
        // query = query.ilike("branch.location", `%${pickupLocationVal}%`);
       }
 
-      // Filter by pickup day/time against branch operation times
+      // Filter by pickup & dropoff across the full date range (first/last day + first/last time)
       const startDateVal = getParam(startDate as any);
+      const endDateVal = getParam(endDate as any) || startDateVal;
       const pickupTimeVal = getParam(pickupTime as any);
-      const dropoffTimeVal = getParam(dropoffTime as any);
-      if (startDateVal && (pickupTimeVal || dropoffTimeVal)) {
-        const pickupDateObj = new Date(String(startDateVal));
-        const dayName = pickupDateObj
+      const dropoffTimeVal = getParam(dropoffTime as any) || pickupTimeVal;
+      if (startDateVal && endDateVal && pickupTimeVal && dropoffTimeVal) {
+        const firstDay = new Date(String(startDateVal))
           .toLocaleDateString("en-US", { weekday: "long" })
           .toLowerCase();
+        const lastDay = new Date(String(endDateVal))
+          .toLocaleDateString("en-US", { weekday: "long" })
+          .toLowerCase();
+
         const normalizeTime = (t: string | null | undefined) => (t && String(t).length === 5 ? `${t}:00` : String(t || ""));
-        const pickupT = normalizeTime(pickupTimeVal || "");
-        const dropoffT = normalizeTime(dropoffTimeVal || pickupTimeVal || "");
+        const firstTime = normalizeTime(pickupTimeVal);
+        const lastTime = normalizeTime(dropoffTimeVal);
 
-        // Ensure branch is open at least for the pickup time window
-
+        // Require branch open at pickup first day/time and dropoff last day/time
+        query = query
+          .eq("branch.pickup_hours.day", firstDay)
+          .lte("branch.pickup_hours.from_time", firstTime)
+          .gte("branch.pickup_hours.to_time", firstTime)
+          .eq("branch.dropoff_hours.day", lastDay)
+          .lte("branch.dropoff_hours.from_time", lastTime)
+          .gte("branch.dropoff_hours.to_time", lastTime);
       }
 
       const { data: cars, error } = await query.limit(50);
@@ -241,8 +282,9 @@ export default function SearchResultsScreen() {
         branchHours: Array.isArray(c?.branch?.branch_operation_days_and_times)
           ? c.branch.branch_operation_days_and_times
           : [],
+        companyLogo: c?.branch?.company?.company_logo,
       }));
-
+     
       // Coordinates for distance calculation (prefer device GPS)
       const lat = deviceLat ?? Number(latitude);
       const lon = deviceLon ?? Number(longitude);
@@ -272,6 +314,7 @@ export default function SearchResultsScreen() {
           available: car.available,
           year: car.year,
           imageUrl: car.imageUrl,
+          companyLogo: car.companyLogo,
         })) as CarRentalData[]
       );
     } catch (error) {
@@ -422,6 +465,7 @@ export default function SearchResultsScreen() {
                       seats: String((car as any).seats || ""),
                       transmission: String((car as any).transmission || ""),
                       distance: String(car.distance || ""),
+                      companyLogo: (car as any).companyLogo || "",
                     },
                   })
                 }
@@ -444,17 +488,19 @@ export default function SearchResultsScreen() {
                         </ThemedText>
                       </View>
                     </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      {String(car.type || "").toLowerCase() === "ev" ? (
-                        <View style={styles.saveBadge}>
-                          <ThemedText style={styles.saveBadgeText}>Save 12%</ThemedText>
+                    <View style={{ alignItems: "flex-end", gap: 6 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        {String(car.type || "").toLowerCase() === "ev" ? (
+                          <View style={styles.saveBadge}>
+                            <ThemedText style={styles.saveBadgeText}>Save 12%</ThemedText>
+                          </View>
+                        ) : null}
+                        <View style={styles.pricePill}>
+                          <ThemedText style={styles.priceValue}>
+                            ${String(car.type || "").toLowerCase() === "ev" ? Math.round(car.price * 0.88) : car.price}
+                          </ThemedText>
+                          <ThemedText style={styles.priceUnit}>/ day</ThemedText>
                         </View>
-                      ) : null}
-                      <View style={styles.pricePill}>
-                        <ThemedText style={styles.priceValue}>
-                          ${String(car.type || "").toLowerCase() === "ev" ? Math.round(car.price * 0.88) : car.price}
-                        </ThemedText>
-                        <ThemedText style={styles.priceUnit}>/ day</ThemedText>
                       </View>
                     </View>
                   </View>
@@ -479,6 +525,14 @@ export default function SearchResultsScreen() {
                       <Ionicons name="car" size={14} color="#9BA1A6" />
                       <ThemedText style={styles.specText}>{car.year ?? ""}</ThemedText>
                     </View>
+                    {(car as any).companyLogo ? (
+                      <View style={styles.specItem}>
+                        <Image
+                          source={{ uri: (car as any).companyLogo as string }}
+                          style={{ width: 30, height: 30 , borderRadius: 4, backgroundColor: "#fff" }}
+                        />
+                      </View>
+                    ) : null}
                   </View>
                 </View>
               </TouchableOpacity>
@@ -531,6 +585,27 @@ export default function SearchResultsScreen() {
                 selectedVehicle={draftVehicle}
                 onVehicleSelect={setDraftVehicle as any}
               />
+              <View style={styles.filterSection}>
+                <ThemedText style={styles.filterLabel}>Price range</ThemedText>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <TextInput
+                    placeholder="Min"
+                    placeholderTextColor="#9BA1A6"
+                    keyboardType="numeric"
+                    value={draftMinPrice}
+                    onChangeText={setDraftMinPrice}
+                    style={styles.priceInput}
+                  />
+                  <TextInput
+                    placeholder="Max"
+                    placeholderTextColor="#9BA1A6"
+                    keyboardType="numeric"
+                    value={draftMaxPrice}
+                    onChangeText={setDraftMaxPrice}
+                    style={styles.priceInput}
+                  />
+                </View>
+              </View>
             </ScrollView>
             <View style={styles.modalButtonsRow}>
               <TouchableOpacity
@@ -552,6 +627,8 @@ export default function SearchResultsScreen() {
                     latitude: draftPickup ? String(draftPickup.lat) : ((latitude as string) || ""),
                     longitude: draftPickup ? String(draftPickup.lon) : ((longitude as string) || ""),
                     vehicleType: draftVehicle || "",
+                    minPrice: draftMinPrice || "",
+                    maxPrice: draftMaxPrice || "",
                     refreshKey: String(Date.now()),
                   });
                   setShowFilter(false);
@@ -578,14 +655,6 @@ export default function SearchResultsScreen() {
           setDraftPickupTime(pt);
           setDraftDropoffTime(dt);
           setShowCalendar(false);
-          // Immediately refresh results by updating route params
-          router.setParams({
-            startDate: s || "",
-            endDate: e || "",
-            pickupTime: pt || "",
-            dropoffTime: dt || "",
-            refreshKey: String(Date.now()),
-          });
         }}
       />
     </ThemedView>
@@ -811,6 +880,16 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.75)",
     fontSize: 12,
     fontWeight: "700",
+  },
+  priceInput: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#fff",
+    borderWidth: 1,
+    borderColor: "rgba(230,232,235,0.14)",
   },
   noResultsContainer: {
     flex: 1,

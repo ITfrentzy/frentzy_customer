@@ -1,5 +1,6 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
@@ -7,6 +8,7 @@ import { Dimensions, Image, ScrollView, StyleSheet, TouchableOpacity, View } fro
 
 export default function VehicleDetailScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { id, name, brand, price, imageUrl, year, type, discount, startDate, endDate, pickupTime, dropoffTime, seats, transmission, distance } = useLocalSearchParams();
 
   const screenWidth = Dimensions.get("window").width;
@@ -341,7 +343,16 @@ export default function VehicleDetailScreen() {
             </View>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.payButton} onPress={() => {}}>
+        <TouchableOpacity
+          style={styles.payButton}
+          onPress={() => {
+            if (!user) {
+              router.push("/login");
+              return;
+            }
+            // proceed to payment flow
+          }}
+        >
           <Ionicons name="card" size={18} color="#151718" />
           <ThemedText style={styles.payButtonText}>Pay ${grandTotal}</ThemedText>
         </TouchableOpacity>
