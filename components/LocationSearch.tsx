@@ -4,13 +4,13 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ExpoLocation from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Modal,
-  Platform,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Modal,
+    Platform,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type LocationSearchProps = {
@@ -324,13 +324,13 @@ export function LocationSearch({ onSelect, initial }: LocationSearchProps) {
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: 30,
+    marginBottom: 8,
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
     color: "#fff",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   locationWrapper: {
     position: "relative",

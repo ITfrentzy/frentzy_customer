@@ -55,13 +55,13 @@ export function VehicleTypeGrid({
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: 30,
+    marginBottom: 0,
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
     color: "#fff",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   vehicleGrid: {
     flexDirection: "row",
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     width: "30%",
     alignItems: "center",
     paddingVertical: 12,
-    marginBottom: 12,
+    marginBottom: 8,
     borderRadius: 12,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderWidth: 2,

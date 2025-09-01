@@ -9,11 +9,12 @@ import { formatDisplay, to12HourFormat, toDateString } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   Image,
+  Keyboard,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -47,6 +48,19 @@ export default function SearchResultsScreen() {
   const [carRentals, setCarRentals] = useState<CarRentalData[]>([]);
   const [cityInfo, setCityInfo] = useState<any>(null);
   const [showFilter, setShowFilter] = useState(false);
+  const filterScrollRef = useRef<ScrollView | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const onShow = (e: any) => setKeyboardHeight(e?.endCoordinates?.height || 260);
+    const onHide = () => setKeyboardHeight(0);
+    const subShow = Keyboard.addListener("keyboardDidShow", onShow);
+    const subHide = Keyboard.addListener("keyboardDidHide", onHide);
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, []);
   const [draftVehicle, setDraftVehicle] = useState<string | null>(
     ((params as any).vehicleType as string) || null
   );
@@ -70,8 +84,8 @@ export default function SearchResultsScreen() {
   const [draftMaxPrice, setDraftMaxPrice] = useState<string>(
     ((params as any).maxPrice as string) || ""
   );
-  const [deviceLat, setDeviceLat] = useState<number | null>(null);
-  const [deviceLon, setDeviceLon] = useState<number | null>(null);
+  const [deviceLatfilter, setDeviceLat] = useState<number | null>(null);
+  const [deviceLonfilter, setDeviceLon] = useState<number | null>(null);
   const [deviceLocDenied, setDeviceLocDenied] = useState<boolean>(false);
 
   const {
@@ -86,6 +100,8 @@ export default function SearchResultsScreen() {
     refreshKey,
     minPrice,
     maxPrice,
+    deviceLat,
+    deviceLon,
   } = params;
 
   useEffect(() => {
@@ -285,9 +301,9 @@ export default function SearchResultsScreen() {
         companyLogo: c?.branch?.company?.company_logo,
       }));
      
-      // Coordinates for distance calculation (prefer device GPS)
-      const lat = deviceLat ?? Number(latitude);
-      const lon = deviceLon ?? Number(longitude);
+      // Coordinates for distance calculation (device GPS only, no fallback)
+      const latCandidate = deviceLat ?? deviceLatfilter;
+      const lonCandidate = deviceLon ?? deviceLonfilter;
 
       // Prefer DB cars only (no local filtering)
       const sourceCars = dbCars;
@@ -295,7 +311,10 @@ export default function SearchResultsScreen() {
       // Compute distance for display only
       const carsWithDistance = sourceCars.map((car) => ({
         ...car,
-        distance: calculateDistance(lat, lon, car.lat, car.lon),
+        distance:
+          latCandidate != null && lonCandidate != null
+            ? calculateDistance(latCandidate as any, lonCandidate as any, car.lat as number, car.lon as number)
+            : 0,
       }));
 
       console.log("City Data:", cityData);
@@ -482,6 +501,13 @@ export default function SearchResultsScreen() {
                 <View style={[styles.carInfo, styles.cardBody]}>
                   <View style={styles.carHeaderRow}>
                     <View style={styles.chipsRow}>
+                      {(car as any).companyLogo ? (
+                        <Image
+                          source={{ uri: (car as any).companyLogo as string }}
+                          style={{ width: 28, height: 28, borderRadius: 6 }}
+                          resizeMode="contain"
+                        />
+                      ) : null}
                       <View style={styles.typeChip}>
                         <ThemedText style={styles.typeChipText} numberOfLines={1}>
                           {car.type}
@@ -525,14 +551,7 @@ export default function SearchResultsScreen() {
                       <Ionicons name="car" size={14} color="#9BA1A6" />
                       <ThemedText style={styles.specText}>{car.year ?? ""}</ThemedText>
                     </View>
-                    {(car as any).companyLogo ? (
-                      <View style={styles.specItem}>
-                        <Image
-                          source={{ uri: (car as any).companyLogo as string }}
-                          style={{ width: 30, height: 30 , borderRadius: 4, backgroundColor: "#fff" }}
-                        />
-                      </View>
-                    ) : null}
+                    
                   </View>
                 </View>
               </TouchableOpacity>
@@ -558,16 +577,18 @@ export default function SearchResultsScreen() {
             </View>
             <ScrollView
               style={{ flexGrow: 0 }}
-              contentContainerStyle={{ paddingBottom: 12 }}
+              contentContainerStyle={{ paddingBottom: 12 + keyboardHeight }}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              ref={(r) => {
+                filterScrollRef.current = r;
+              }}
             >
-              <View style={styles.filterSection}>
-                <LocationSearch
-                  initial={draftPickup}
-                  onSelect={(s) => setDraftPickup(s)}
-                />
-              </View>
-              <View style={styles.filterSection}>
+              <LocationSearch
+                initial={draftPickup}
+                onSelect={(s) => setDraftPickup(s)}
+              />
+              <View style={styles.filterSection}> 
                 <ThemedText style={styles.filterLabel}>Dates</ThemedText>
                 <TouchableOpacity
                   style={styles.rangeInputContainer}
@@ -585,7 +606,7 @@ export default function SearchResultsScreen() {
                 selectedVehicle={draftVehicle}
                 onVehicleSelect={setDraftVehicle as any}
               />
-              <View style={styles.filterSection}>
+              <View style={styles.filterSection}> 
                 <ThemedText style={styles.filterLabel}>Price range</ThemedText>
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <TextInput
@@ -595,6 +616,7 @@ export default function SearchResultsScreen() {
                     value={draftMinPrice}
                     onChangeText={setDraftMinPrice}
                     style={styles.priceInput}
+                    onFocus={() => setTimeout(() => filterScrollRef.current?.scrollToEnd({ animated: true }), 80)}
                   />
                   <TextInput
                     placeholder="Max"
@@ -603,6 +625,7 @@ export default function SearchResultsScreen() {
                     value={draftMaxPrice}
                     onChangeText={setDraftMaxPrice}
                     style={styles.priceInput}
+                    onFocus={() => setTimeout(() => filterScrollRef.current?.scrollToEnd({ animated: true }), 80)}
                   />
                 </View>
               </View>
@@ -616,7 +639,15 @@ export default function SearchResultsScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalButtonPrimary}
-                onPress={() => {
+                onPress={async () => {
+                  try {
+                    const { status } = await Location.requestForegroundPermissionsAsync();
+                    if (status === "granted") {
+                      const pos = await Location.getCurrentPositionAsync({});
+                      setDeviceLat(pos.coords.latitude);
+                      setDeviceLon(pos.coords.longitude);
+                    }
+                  } catch {}
                   carRentals.length = 0;
                   router.setParams({
                     startDate: draftStartDate || "",
@@ -941,7 +972,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   filterSection: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   filterLabel: {
     fontSize: 16,

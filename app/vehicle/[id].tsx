@@ -347,7 +347,26 @@ export default function VehicleDetailScreen() {
           style={styles.payButton}
           onPress={() => {
             if (!user) {
-              router.push("/login");
+              router.push({
+                pathname: "/login",
+                params: {
+                  from: "vehicle",
+                  id,
+                  name,
+                  brand,
+                  price,
+                  imageUrl,
+                  year,
+                  type,
+                  startDate,
+                  endDate,
+                  pickupTime,
+                  dropoffTime,
+                  seats,
+                  transmission,
+                  distance,
+                },
+              });
               return;
             }
             // proceed to payment flow

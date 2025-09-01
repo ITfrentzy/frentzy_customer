@@ -1,19 +1,36 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity } from "react-native";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const navigation = useNavigation<any>();
   const { signIn, loading, debugBypass } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const params = useLocalSearchParams();
 
   const onSubmit = async () => {
     await signIn(email.trim(), password);
-    router.replace("/(tabs)");
+    // Only reset the stack if routed here from account tab
+    const from = Array.isArray((params as any)?.from)
+      ? (params as any).from[0]
+      : (params as any)?.from;
+    const hasVehicleId = (params as any)?.id != null;
+    if (from === "account") {
+      try {
+        navigation.reset({ index: 0, routes: [{ name: "(tabs)" }] });
+      } catch {}
+    } else if (from === "vehicle" || hasVehicleId) {
+      // Return to existing vehicle detail without stacking a duplicate
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
   };
 
   return (
@@ -39,7 +56,25 @@ export default function LoginScreen() {
       <TouchableOpacity style={styles.button} onPress={onSubmit} disabled={loading}>
         {loading ? <ActivityIndicator color="#151718" /> : <ThemedText style={styles.buttonText}>Login</ThemedText>}
       </TouchableOpacity>
-      <TouchableOpacity style={[styles.button, { backgroundColor: "rgba(255,255,255,0.14)", marginTop: 10 }]} onPress={() => { debugBypass(); router.replace("/(tabs)"); }}>
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: "rgba(255,255,255,0.14)", marginTop: 10 }]}
+        onPress={() => {
+          debugBypass();
+          const from = Array.isArray((params as any)?.from)
+            ? (params as any).from[0]
+            : (params as any)?.from;
+          const hasVehicleId = (params as any)?.id != null;
+          if (from === "vehicle" || hasVehicleId) {
+            router.back();
+          } else if (from === "account") {
+            try {
+              navigation.reset({ index: 0, routes: [{ name: "(tabs)" }] });
+            } catch {}
+          } else {
+            router.replace("/(tabs)");
+          }
+        }}
+      >
         <ThemedText style={[styles.buttonText, { color: "#fff" }]}>Bypass (Debug)</ThemedText>
       </TouchableOpacity>
     </ThemedView>

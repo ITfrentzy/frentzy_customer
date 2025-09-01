@@ -6,6 +6,7 @@ import { VehicleTypeGrid } from "@/components/VehicleTypeGrid";
 import type { Suggestion } from "@/types/location";
 import { formatDisplay, to12HourFormat, toDateString } from "@/utils/date";
 import { useFocusEffect } from "@react-navigation/native";
+import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -69,7 +70,17 @@ export default function CarRentalScreen() {
 
   const router = useRouter();
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
+    let deviceLat: string = "";
+    let deviceLon: string = "";
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const pos = await Location.getCurrentPositionAsync({});
+        deviceLat = String(pos.coords.latitude);
+        deviceLon = String(pos.coords.longitude);
+      }
+    } catch {}
     if (isFormValid) {
       router.push({
         pathname: "/search",
@@ -82,6 +93,8 @@ export default function CarRentalScreen() {
           latitude: pickupLocation?.lat?.toString() || "",
           longitude: pickupLocation?.lon?.toString() || "",
           vehicleType: selectedVehicleType || "",
+          deviceLat,
+          deviceLon,
         },
       });
     }

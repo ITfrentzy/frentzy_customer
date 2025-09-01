@@ -2,6 +2,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useAuth } from "@/context/AuthContext";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -9,11 +10,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AccountScreen() {
   const router = useRouter();
+  const navigation = useNavigation<any>();
   const { user, signOut } = useAuth();
 
   const handleLogout = () => {
     signOut();
-    router.replace("/login");
+    try {
+      navigation.reset({ index: 0, routes: [{ name: "login" }] });
+    } catch {}
   };
 
   const ActionItem = ({
@@ -102,7 +106,7 @@ export default function AccountScreen() {
               <ActionItem
                 icon="login"
                 label="Log in"
-                onPress={() => router.push("/login")}
+                onPress={() => router.push({ pathname: "/login", params: { from: "account" } })}
               />
             )}
           </View>
