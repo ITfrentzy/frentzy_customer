@@ -38,42 +38,72 @@ export default function AccountScreen() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <ThemedView style={styles.container}>
         <View style={styles.headerCard}>
-        <View style={styles.headerText}>
-          <ThemedText style={styles.nameText} numberOfLines={1}>
-            {user?.full_name || "Guest"}
-          </ThemedText>
-          <ThemedText style={styles.emailText} numberOfLines={1}>
-            {user?.email || "Not signed in"}
-          </ThemedText>
-        </View>
+          <View style={styles.headerText}>
+            <ThemedText style={styles.nameText} numberOfLines={1}>
+              {user?.full_name || "Guest"}
+            </ThemedText>
+            <ThemedText style={styles.emailText} numberOfLines={1}>
+              {user?.email || "Not signed in"}
+            </ThemedText>
+          </View>
         </View>
 
         {user ? (
           <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>Account</ThemedText>
             <View style={styles.card}>
-              <ActionItem icon="person" label="Edit personal information" onPress={() => router.push("/profile/edit")} />
+              <ActionItem
+                icon="person"
+                label="Edit personal information"
+                onPress={() => router.push("/profile/edit")}
+              />
               <View style={styles.divider} />
-              <ActionItem icon="password" label="Change password" onPress={() => router.push("/change-password")} />
+              <ActionItem
+                icon="password"
+                label="Change password"
+                onPress={() => router.push("/change-password")}
+              />
+              <View style={styles.divider} />
+              <ActionItem
+                icon="credit-card"
+                label="Payment methods"
+                onPress={() => router.push("/payment")}
+              />
             </View>
           </View>
         ) : null}
 
         <View style={styles.section}>
-        <ThemedText style={styles.sectionTitle}>Legal</ThemedText>
-        <View style={styles.card}>
-          <ActionItem icon="gavel" label="Terms & Conditions" onPress={() => router.push("/terms")} />
-          <View style={styles.divider} />
-          <ActionItem icon="privacy-tip" label="Privacy Policy" onPress={() => router.push("/privacy")} />
-        </View>
+          <ThemedText style={styles.sectionTitle}>Legal</ThemedText>
+          <View style={styles.card}>
+            <ActionItem
+              icon="gavel"
+              label="Terms & Conditions"
+              onPress={() => router.push("/terms")}
+            />
+            <View style={styles.divider} />
+            <ActionItem
+              icon="privacy-tip"
+              label="Privacy Policy"
+              onPress={() => router.push("/privacy")}
+            />
+          </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.card}>
             {user ? (
-              <ActionItem icon="logout" label="Log out" onPress={handleLogout} />
+              <ActionItem
+                icon="logout"
+                label="Log out"
+                onPress={handleLogout}
+              />
             ) : (
-              <ActionItem icon="login" label="Log in" onPress={() => router.push("/login")} />
+              <ActionItem
+                icon="login"
+                label="Log in"
+                onPress={() => router.push("/login")}
+              />
             )}
           </View>
         </View>
