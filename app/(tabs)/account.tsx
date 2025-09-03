@@ -16,8 +16,10 @@ export default function AccountScreen() {
   const handleLogout = () => {
     signOut();
     try {
-      navigation.reset({ index: 0, routes: [{ name: "login" }] });
-    } catch {}
+      navigation.reset({ index: 0, routes: [{ name: "(tabs)" }] });
+    } catch {
+      router.replace("/(tabs)");
+    }
   };
 
   const ActionItem = ({

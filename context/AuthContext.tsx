@@ -1,19 +1,22 @@
 import { supabase } from "@/lib/supabase";
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 
 type AuthUser = {
   id: string;
   full_name?: string | null;
   email?: string | null;
+  phone?: string | null;
 };
 
 type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  requestOtp: (phone: string) => Promise<void>;
+  verifyOtp: (phone: string, token: string) => Promise<boolean>;
   signOut: () => void;
-  debugBypass: () => void;
+  justLoggedIn: boolean;
+  ackJustLoggedIn: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -21,48 +24,162 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(false);
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
 
-  const signIn = async (email: string, password: string) => {
-    if (!email || !password) {
-      Alert.alert("Missing info", "Please enter email and password.");
+  const requestOtp = async (phone: string) => {
+    if (!phone) {
+      Alert.alert("Missing phone", "Please enter your phone number.");
       return;
     }
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("customer")
-        .select("id, full_name, email")
-        .eq("email", email)
-        .eq("password", password)
-        .maybeSingle();
-
+      console.log("[Auth] Requesting OTP for:", phone);
+      const { error } = await supabase.auth.signInWithOtp({
+        phone,
+        options: { channel: "sms", shouldCreateUser: true },
+      });
       if (error) {
-        Alert.alert("Login error", error.message);
-        return;
+        Alert.alert("OTP error", error.message);
+      } else {
+        Alert.alert("Code sent", "We sent a verification code via SMS.");
       }
-      if (!data) {
-        Alert.alert("Invalid credentials", "Email or password is incorrect.");
-        return;
-      }
-      setUser({ id: data.id, full_name: (data as any).full_name, email: (data as any).email });
     } finally {
       setLoading(false);
     }
   };
 
-  const signOut = () => {
-    setUser(null);
-  };
+  const verifyOtp = async (phone: string, token: string) => {
+    if (!phone || !token) {
+      Alert.alert("Missing info", "Enter your phone and the verification code.");
+      return false;
+    }
+    try {
+      setLoading(true);
+      console.log("[Auth] Verifying OTP for:", phone, "code:", token);
+      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({ phone, token, type: "sms" });
+      const verifiedUser = (verifyData as any)?.user;
+      if (verifyError || !verifiedUser) {
+        Alert.alert("Verification failed", verifyError?.message || "Invalid code");
+        return false;
+      }
+      // Try link to customer by auth user id first
+      const { data: customerById } = await supabase
+        .from("customer")
+        .select("id, full_name, email, phone")
+        .eq("id", (verifiedUser as any)?.id)
+        .maybeSingle();
 
-  const debugBypass = () => {
-    // Enable in development or when EXPO_PUBLIC_DEBUG_BYPASS=1
-    const bypassVar = (process as any)?.env?.EXPO_PUBLIC_DEBUG_BYPASS;
-    if (__DEV__ || bypassVar === "1") {
-      setUser({ id: "debug-user", full_name: "Debug User", email: "debug@example.com" });
+      let effectiveCustomer: any = customerById;
+      if (!effectiveCustomer) {
+        // Fallback: lookup by phone or email
+        const { data: customerByContact } = await supabase
+          .from("customer")
+          .select("id, full_name, email, phone")
+          .or(`phone.eq.${phone},email.eq.${(verifiedUser as any)?.email ?? ""}`)
+          .maybeSingle();
+        effectiveCustomer = customerByContact;
+      }
+
+      if (!effectiveCustomer) {
+        console.log("Creating a new customer row linked to auth user id");
+        // Create a new customer row linked to auth user id
+        var result = await supabase
+          .from("customer")
+          .upsert(
+            [
+              {
+            
+                full_name: (verifiedUser as any)?.user_metadata?.full_name ?? null,
+                email: (verifiedUser as any)?.email ?? null,
+                phone: phone,
+                phone_verified: true,
+                active: true,
+              },
+            ],
+            { onConflict: "id" }
+          );
+          console.log("result", result);
+        effectiveCustomer = {
+          id: (verifiedUser as any)?.id,
+          full_name: (verifiedUser as any)?.user_metadata?.full_name ?? null,
+          email: (verifiedUser as any)?.email ?? null,
+          phone,
+        };
+      }
+
+      setUser({
+        id: effectiveCustomer.id,
+        full_name: effectiveCustomer.full_name ?? (verifiedUser as any)?.user_metadata?.full_name ?? null,
+        email: effectiveCustomer.email ?? (verifiedUser as any)?.email ?? null,
+        phone: effectiveCustomer.phone ?? (verifiedUser as any)?.phone ?? phone ?? null,
+      });
+      setJustLoggedIn(true);
+      return true;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const value = useMemo<AuthContextValue>(() => ({ user, loading, signIn, signOut, debugBypass }), [user, loading]);
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      setUser(null);
+      setJustLoggedIn(false);
+    }
+  };
+
+  const ackJustLoggedIn = () => setJustLoggedIn(false);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, loading, requestOtp, verifyOtp, signOut, justLoggedIn, ackJustLoggedIn }),
+    [user, loading, justLoggedIn]
+  );
+
+  // Keep auth state in sync with Supabase session
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data: sessionRes } = await supabase.auth.getSession();
+      const sessionUser = sessionRes?.session?.user;
+      if (mounted && sessionUser && !user) {
+        // Hydrate from customer table if exists
+        const { data: customer } = await supabase
+          .from("customer")
+          .select("id, full_name, email, phone")
+          .eq("id", sessionUser.id)
+          .maybeSingle();
+        setUser({
+          id: (customer as any)?.id || sessionUser.id,
+          full_name: (customer as any)?.full_name || sessionUser.user_metadata?.full_name || null,
+          email: (customer as any)?.email || sessionUser.email || null,
+          phone: (customer as any)?.phone || (sessionUser as any)?.phone || null,
+        });
+      }
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const sessionUser = session?.user;
+      if (sessionUser) {
+        const { data: customer } = await supabase
+          .from("customer")
+          .select("id, full_name, email, phone")
+          .eq("id", sessionUser.id)
+          .maybeSingle();
+        setUser({
+          id: (customer as any)?.id || sessionUser.id,
+          full_name: (customer as any)?.full_name || sessionUser.user_metadata?.full_name || null,
+          email: (customer as any)?.email || sessionUser.email || null,
+          phone: (customer as any)?.phone || (sessionUser as any)?.phone || null,
+        });
+      } else {
+        setUser(null);
+      }
+    });
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

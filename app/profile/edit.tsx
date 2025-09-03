@@ -320,7 +320,7 @@ export default function EditProfileScreen() {
             onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
             scrollEventThrottle={16}
           >
-          <ThemedText style={styles.sectionLabel}>Status</ThemedText>
+          <ThemedText style={styles.sectionLabel}>Renter Type</ThemedText>
           <View style={styles.statusGrid}>
             {[{ key: "citizen", label: "Citizen" }, { key: "resident", label: "Resident" }, { key: "gulf", label: "Gulf citizen" }, { key: "visitor", label: "Visitor" }].map((opt) => (
               <TouchableOpacity

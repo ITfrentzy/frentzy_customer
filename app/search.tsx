@@ -105,10 +105,7 @@ export default function SearchResultsScreen() {
   } = params;
 
   useEffect(() => {
-  
-    if (latitude && longitude) {
-      fetchCarRentals();
-    }
+    fetchCarRentals();
   }, [latitude, longitude, vehicleType, startDate, endDate, pickupTime, dropoffTime, minPrice, maxPrice, refreshKey]);
 
   // Get device GPS location once for distance display
@@ -153,29 +150,29 @@ export default function SearchResultsScreen() {
     try {
       setLoading(true);
 
-      // First, get city boundaries using reverse geocoding
-      const cityData = await getCityBoundaries(
-        Number(latitude),
-        Number(longitude)
-      );
+      // First, get city boundaries using reverse geocoding if lat/lon provided
+      const hasLatLonParams = latitude != null && longitude != null && String(latitude) !== "" && String(longitude) !== "";
+      const cityData = hasLatLonParams
+        ? await getCityBoundaries(Number(latitude), Number(longitude))
+        : ({ radius: 25 } as any);
 
       setCityInfo(cityData);
 
       // Use city boundaries to determine search area
-      const searchRadius = cityData.radius; // Use actual city radius, no fallback
+      const searchRadius = cityData.radius; // Use actual city radius, fallback exists
 
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       // Try to fetch cars from Supabase first with nested branch and operation times
       // Compute bounding box (in degrees) for branch coords based on searchRadius (km)
-      const centerLat = Number(latitude);
-      const centerLon = Number(longitude);
-      const deltaLat = searchRadius / 111; // ~111 km per degree latitude
-      const deltaLon = searchRadius / (111 * Math.cos((centerLat * Math.PI) / 180));
-      const minLat = centerLat - deltaLat;
-      const maxLat = centerLat + deltaLat;
-      const minLon = centerLon - deltaLon;
-      const maxLon = centerLon + deltaLon;
+      const centerLat = hasLatLonParams ? Number(latitude) : null;
+      const centerLon = hasLatLonParams ? Number(longitude) : null;
+      const deltaLat = centerLat != null ? searchRadius / 111 : null; // ~111 km per degree latitude
+      const deltaLon = centerLon != null ? searchRadius / (111 * Math.cos(((centerLat as number) * Math.PI) / 180)) : null;
+      const minLat = centerLat != null && deltaLat != null ? centerLat - deltaLat : null;
+      const maxLat = centerLat != null && deltaLat != null ? centerLat + deltaLat : null;
+      const minLon = centerLon != null && deltaLon != null ? centerLon - (deltaLon as number) : null;
+      const maxLon = centerLon != null && deltaLon != null ? centerLon + (deltaLon as number) : null;
 
       console.log("minLat", minLat);
       console.log("maxLat", maxLat);
@@ -214,11 +211,14 @@ export default function SearchResultsScreen() {
       if (vehicleType) {
        query = query.eq("car_type", String(vehicleType).toUpperCase());
       }
-
-      query = query.gte("branch.latitude", minLat)
-      .lte("branch.latitude", maxLat)
-      .gte("branch.longitude", minLon)
-      .lte("branch.longitude", maxLon);
+      // Apply geo bounding box only when coordinates are available
+      if (minLat != null && maxLat != null && minLon != null && maxLon != null) {
+        query = query
+          .gte("branch.latitude", minLat)
+          .lte("branch.latitude", maxLat)
+          .gte("branch.longitude", minLon)
+          .lte("branch.longitude", maxLon);
+      }
 
       // Price range API-side
       const minPriceVal = (Array.isArray(minPrice) ? minPrice[0] : (minPrice as string | undefined));

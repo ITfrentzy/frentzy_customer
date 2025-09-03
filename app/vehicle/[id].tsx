@@ -1,19 +1,112 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Dimensions, Image, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Dimensions, Image, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 export default function VehicleDetailScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, justLoggedIn, ackJustLoggedIn } = useAuth();
   const { id, name, brand, price, imageUrl, year, type, discount, startDate, endDate, pickupTime, dropoffTime, seats, transmission, distance } = useLocalSearchParams();
 
   const screenWidth = Dimensions.get("window").width;
   const sheetMaxHeight = Math.round(Dimensions.get("window").height*0.6);
   const [activeIdx, setActiveIdx] = useState<number>(0);
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+
+  const validateProfileAndMaybeShow = async (): Promise<boolean> => {
+    try {
+      if (!user) return false;
+      const [{ data: base }, { data: info }] = await Promise.all([
+        supabase
+          .from("customer")
+          .select("full_name, email, phone")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("customer_info")
+          .select(
+            "renter_type, national_id, id_expiry_date, license_expiry_date, license_number, date_of_birth, nationality, phone_number, version, border_nnumber"
+          )
+          .eq("customer_id", user.id)
+          .maybeSingle(),
+      ]);
+      const missing: string[] = [];
+      const fullName = String((base as any)?.full_name || "").trim();
+      const emailVal = String((base as any)?.email || "").trim();
+      const phoneVal = String((info as any)?.phone_number || (base as any)?.phone || "").trim();
+      const nationalityVal = String((info as any)?.nationality || "").trim();
+      const renterType = String((info as any)?.renter_type || "").trim();
+
+      if (!fullName) missing.push("Full name");
+      if (!emailVal) missing.push("Email");
+      if (!nationalityVal) missing.push("Nationality");
+      if (!phoneVal) missing.push("Phone");
+
+      const idNum = String((info as any)?.national_id || "").trim();
+      const idVer = (info as any)?.version;
+      const borderNum = String((info as any)?.border_nnumber || "").trim();
+      const dlNo = String((info as any)?.license_number || "").trim();
+      const idExp = String((info as any)?.id_expiry_date || "").trim();
+      const dlExp = String((info as any)?.license_expiry_date || "").trim();
+      const dob = String((info as any)?.date_of_birth || "").trim();
+
+      const statusMissing: string[] = [];
+      if (renterType === "resident") {
+        if (!idNum) statusMissing.push("Iqama");
+        if (!idVer && idVer !== 0) statusMissing.push("Version");
+        if (!idExp) statusMissing.push("Iqama expiry date");
+        if (!dlExp) statusMissing.push("Driver license expiry date");
+        if (!dlNo) statusMissing.push("Driver license no.");
+        if (!dob) statusMissing.push("Date of birth");
+      } else if (renterType === "citizen") {
+        if (!idNum) statusMissing.push("National ID");
+        if (!idExp) statusMissing.push("National ID expiry date");
+        if (!dlExp) statusMissing.push("Driver license expiry date");
+        if (!dlNo) statusMissing.push("Driver license no.");
+        if (!dob) statusMissing.push("Date of birth");
+      } else if (renterType === "gulf") {
+        if (!idNum) statusMissing.push("Gulf National ID");
+        if (!idExp) statusMissing.push("Gulf ID expiry date");
+        if (!dlExp) statusMissing.push("Driver license expiry date");
+        if (!dlNo) statusMissing.push("Driver license no.");
+        if (!dob) statusMissing.push("Date of birth");
+      } else if (renterType === "visitor") {
+        if (!borderNum) statusMissing.push("Passport/Border No.");
+        if (!dob) statusMissing.push("Date of birth");
+      }
+
+      if (!renterType) {
+        if (!missing.includes("Renter Type")) missing.push("Renter Type");
+      } else if (statusMissing.length > 0) {
+        if (!missing.includes("Renter Type")) missing.push("Renter Type");
+        missing.push(...statusMissing);
+      }
+
+      if (missing.length > 0) {
+        setMissingFields(missing);
+        setShowProfileModal(true);
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user && justLoggedIn) {
+        validateProfileAndMaybeShow().finally(() => ackJustLoggedIn());
+      }
+      return () => {};
+    }, [user, justLoggedIn])
+  );
 
   const parsedPrice = useMemo(() => {
     const n = Number(price ?? 0);
@@ -369,7 +462,13 @@ export default function VehicleDetailScreen() {
               });
               return;
             }
-            // proceed to payment flow
+            // If logged in, ensure profile is complete before proceeding
+            (async () => {
+              const ok = await validateProfileAndMaybeShow();
+              if (ok) {
+                // proceed to payment flow here
+              }
+            })();
           }}
         >
           <Ionicons name="card" size={18} color="#151718" />
@@ -447,6 +546,47 @@ export default function VehicleDetailScreen() {
           </View>
         </View>
       )}
+
+      {/* Profile completion modal */}
+      <Modal visible={showProfileModal} animationType="fade" transparent onRequestClose={() => setShowProfileModal(false)}>
+        <View style={styles.profileModalOverlay}>
+          <View style={styles.profileModalCard}>
+            <ThemedText style={styles.profileModalTitle}>Complete your profile</ThemedText>
+            <ThemedText style={styles.profileModalText}>
+              To proceed with payment, please complete your profile information.
+            </ThemedText>
+            {missingFields.length > 0 ? (
+              <View style={styles.profileMissingList}>
+                {missingFields.map((f) => (
+                  <View key={f} style={styles.profileMissingItem}>
+                    <Ionicons name="alert-circle" size={16} color="#ffcc00" />
+                    <ThemedText style={styles.profileMissingText}>{f} is required</ThemedText>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            <View style={styles.profileModalButtons}>
+              <TouchableOpacity
+                style={styles.profilePrimaryBtn}
+                onPress={() => {
+                  setShowProfileModal(false);
+                  router.push("/profile/edit");
+                }}
+                activeOpacity={0.85}
+              >
+                <ThemedText style={styles.profilePrimaryBtnText}>Complete profile</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.profileSecondaryBtn}
+                onPress={() => setShowProfileModal(false)}
+                activeOpacity={0.85}
+              >
+                <ThemedText style={styles.profileSecondaryBtnText}>Close</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -870,6 +1010,78 @@ const styles = StyleSheet.create({
   sheetTitle: {
     color: "#fff",
     fontSize: 16,
+    fontWeight: "700",
+  },
+  profileModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  profileModalCard: {
+    backgroundColor: "#1b1e1f",
+    borderRadius: 16,
+    width: "100%",
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(230,232,235,0.14)",
+  },
+  profileModalTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  profileModalText: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  profileMissingList: {
+    marginTop: 4,
+    marginBottom: 12,
+    gap: 8,
+  },
+  profileMissingItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  profileMissingText: {
+    color: "#fff",
+    fontSize: 14,
+  },
+  profileModalButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  profilePrimaryBtn: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  profilePrimaryBtnText: {
+    color: "#151718",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  profileSecondaryBtn: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(230,232,235,0.14)",
+  },
+  profileSecondaryBtnText: {
+    color: "#fff",
+    fontSize: 15,
     fontWeight: "700",
   },
 });
