@@ -52,7 +52,8 @@ export default function SearchResultsScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    const onShow = (e: any) => setKeyboardHeight(e?.endCoordinates?.height || 260);
+    const onShow = (e: any) =>
+      setKeyboardHeight(e?.endCoordinates?.height || 260);
     const onHide = () => setKeyboardHeight(0);
     const subShow = Keyboard.addListener("keyboardDidShow", onShow);
     const subHide = Keyboard.addListener("keyboardDidHide", onHide);
@@ -106,7 +107,18 @@ export default function SearchResultsScreen() {
 
   useEffect(() => {
     fetchCarRentals();
-  }, [latitude, longitude, vehicleType, startDate, endDate, pickupTime, dropoffTime, minPrice, maxPrice, refreshKey]);
+  }, [
+    latitude,
+    longitude,
+    vehicleType,
+    startDate,
+    endDate,
+    pickupTime,
+    dropoffTime,
+    minPrice,
+    maxPrice,
+    refreshKey,
+  ]);
 
   // Get device GPS location once for distance display
   useEffect(() => {
@@ -151,7 +163,11 @@ export default function SearchResultsScreen() {
       setLoading(true);
 
       // First, get city boundaries using reverse geocoding if lat/lon provided
-      const hasLatLonParams = latitude != null && longitude != null && String(latitude) !== "" && String(longitude) !== "";
+      const hasLatLonParams =
+        latitude != null &&
+        longitude != null &&
+        String(latitude) !== "" &&
+        String(longitude) !== "";
       const cityData = hasLatLonParams
         ? await getCityBoundaries(Number(latitude), Number(longitude))
         : ({ radius: 25 } as any);
@@ -168,20 +184,30 @@ export default function SearchResultsScreen() {
       const centerLat = hasLatLonParams ? Number(latitude) : null;
       const centerLon = hasLatLonParams ? Number(longitude) : null;
       const deltaLat = centerLat != null ? searchRadius / 111 : null; // ~111 km per degree latitude
-      const deltaLon = centerLon != null ? searchRadius / (111 * Math.cos(((centerLat as number) * Math.PI) / 180)) : null;
-      const minLat = centerLat != null && deltaLat != null ? centerLat - deltaLat : null;
-      const maxLat = centerLat != null && deltaLat != null ? centerLat + deltaLat : null;
-      const minLon = centerLon != null && deltaLon != null ? centerLon - (deltaLon as number) : null;
-      const maxLon = centerLon != null && deltaLon != null ? centerLon + (deltaLon as number) : null;
+      const deltaLon =
+        centerLon != null
+          ? searchRadius /
+            (111 * Math.cos(((centerLat as number) * Math.PI) / 180))
+          : null;
+      const minLat =
+        centerLat != null && deltaLat != null ? centerLat - deltaLat : null;
+      const maxLat =
+        centerLat != null && deltaLat != null ? centerLat + deltaLat : null;
+      const minLon =
+        centerLon != null && deltaLon != null
+          ? centerLon - (deltaLon as number)
+          : null;
+      const maxLon =
+        centerLon != null && deltaLon != null
+          ? centerLon + (deltaLon as number)
+          : null;
 
       console.log("minLat", minLat);
       console.log("maxLat", maxLat);
       console.log("minLon", minLon);
       console.log("maxLon", maxLon);
 
-      let query = supabase
-        .from("cars")
-        .select(`
+      let query = supabase.from("cars").select(`
           *,
           branch:branch_id!inner (
             id,
@@ -201,18 +227,22 @@ export default function SearchResultsScreen() {
               to_time
             )
           )
-        `)
-  
-        // Geo bounding box by branch coordinates (API-side filtering only)
-    
+        `);
+
+      // Geo bounding box by branch coordinates (API-side filtering only)
 
       // Filter by car_type if provided
       console.log("type", vehicleType);
       if (vehicleType) {
-       query = query.eq("car_type", String(vehicleType).toUpperCase());
+        query = query.eq("car_type", String(vehicleType).toUpperCase());
       }
       // Apply geo bounding box only when coordinates are available
-      if (minLat != null && maxLat != null && minLon != null && maxLon != null) {
+      if (
+        minLat != null &&
+        maxLat != null &&
+        minLon != null &&
+        maxLon != null
+      ) {
         query = query
           .gte("branch.latitude", minLat)
           .lte("branch.latitude", maxLat)
@@ -221,8 +251,12 @@ export default function SearchResultsScreen() {
       }
 
       // Price range API-side
-      const minPriceVal = (Array.isArray(minPrice) ? minPrice[0] : (minPrice as string | undefined));
-      const maxPriceVal = (Array.isArray(maxPrice) ? maxPrice[0] : (maxPrice as string | undefined));
+      const minPriceVal = Array.isArray(minPrice)
+        ? minPrice[0]
+        : (minPrice as string | undefined);
+      const maxPriceVal = Array.isArray(maxPrice)
+        ? maxPrice[0]
+        : (maxPrice as string | undefined);
       if (minPriceVal) {
         query = query.gte("rental_price", Number(minPriceVal));
       }
@@ -237,7 +271,7 @@ export default function SearchResultsScreen() {
       // Filter by branch location name if available
       const pickupLocationVal = getParam(pickupLocation as any);
       if (pickupLocationVal) {
-       // query = query.ilike("branch.location", `%${pickupLocationVal}%`);
+        // query = query.ilike("branch.location", `%${pickupLocationVal}%`);
       }
 
       // Filter by pickup & dropoff across the full date range (first/last day + first/last time)
@@ -253,7 +287,8 @@ export default function SearchResultsScreen() {
           .toLocaleDateString("en-US", { weekday: "long" })
           .toLowerCase();
 
-        const normalizeTime = (t: string | null | undefined) => (t && String(t).length === 5 ? `${t}:00` : String(t || ""));
+        const normalizeTime = (t: string | null | undefined) =>
+          t && String(t).length === 5 ? `${t}:00` : String(t || "");
         const firstTime = normalizeTime(pickupTimeVal);
         const lastTime = normalizeTime(dropoffTimeVal);
 
@@ -272,7 +307,6 @@ export default function SearchResultsScreen() {
       if (error) {
         console.log("Supabase cars fetch error:", error.message);
       }
-      
 
       const dbCars: any[] = (cars || []).map((c: any) => ({
         id: c.id,
@@ -282,8 +316,14 @@ export default function SearchResultsScreen() {
         price: Number(c.rental_price ?? 60),
         rating: 4.5,
         // Prefer branch coordinates if present; otherwise fall back to current search location
-        lat: c?.branch?.latitude != null ? Number(c.branch.latitude) : Number(latitude),
-        lon: c?.branch?.longitude != null ? Number(c.branch.longitude) : Number(longitude),
+        lat:
+          c?.branch?.latitude != null
+            ? Number(c.branch.latitude)
+            : Number(latitude),
+        lon:
+          c?.branch?.longitude != null
+            ? Number(c.branch.longitude)
+            : Number(longitude),
         available: Boolean(c.availability_status ?? true),
         year: c.model_year ?? undefined,
         imageUrl:
@@ -300,7 +340,7 @@ export default function SearchResultsScreen() {
           : [],
         companyLogo: c?.branch?.company?.company_logo,
       }));
-     
+
       // Coordinates for distance calculation (device GPS only, no fallback)
       const latCandidate = deviceLat ?? deviceLatfilter;
       const lonCandidate = deviceLon ?? deviceLonfilter;
@@ -313,7 +353,12 @@ export default function SearchResultsScreen() {
         ...car,
         distance:
           latCandidate != null && lonCandidate != null
-            ? calculateDistance(latCandidate as any, lonCandidate as any, car.lat as number, car.lon as number)
+            ? calculateDistance(
+                latCandidate as any,
+                lonCandidate as any,
+                car.lat as number,
+                car.lon as number
+              )
             : 0,
       }));
 
@@ -394,16 +439,19 @@ export default function SearchResultsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }] }>
-        <View style={styles.headerBar}>
-          <View style={styles.headerSide}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
-          <ThemedText style={styles.title}>Search Results</ThemedText>
-          <View style={styles.headerSide} />
+      <View style={styles.header}>
+        <View style={styles.headerSide}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Ionicons name="chevron-back" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
+        <ThemedText style={styles.title} numberOfLines={1}>
+          Search Results
+        </ThemedText>
+        <View style={styles.headerSide} />
       </View>
 
       {/* Static results header (title + filter) */}
@@ -418,13 +466,23 @@ export default function SearchResultsScreen() {
               setDraftVehicle(((params as any).vehicleType as string) || null);
               setDraftStartDate(((params as any).startDate as string) || null);
               setDraftEndDate(((params as any).endDate as string) || null);
-              setDraftPickupTime(((params as any).pickupTime as string) || "10:00");
-              setDraftDropoffTime(((params as any).dropoffTime as string) || "10:00");
+              setDraftPickupTime(
+                ((params as any).pickupTime as string) || "10:00"
+              );
+              setDraftDropoffTime(
+                ((params as any).dropoffTime as string) || "10:00"
+              );
               const latStr = (params as any).latitude as string;
               const lonStr = (params as any).longitude as string;
               const labelStr = (params as any).pickupLocation as string;
               if (latStr && lonStr) {
-                setDraftPickup({ id: "current", label: labelStr || "", lat: Number(latStr), lon: Number(lonStr), kind: "city" });
+                setDraftPickup({
+                  id: "current",
+                  label: labelStr || "",
+                  lat: Number(latStr),
+                  lon: Number(lonStr),
+                  kind: "city",
+                });
               } else {
                 setDraftPickup(null);
               }
@@ -439,7 +497,6 @@ export default function SearchResultsScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#fff" />
@@ -509,23 +566,39 @@ export default function SearchResultsScreen() {
                         />
                       ) : null}
                       <View style={styles.typeChip}>
-                        <ThemedText style={styles.typeChipText} numberOfLines={1}>
+                        <ThemedText
+                          style={styles.typeChipText}
+                          numberOfLines={1}
+                        >
                           {car.type}
                         </ThemedText>
                       </View>
                     </View>
                     <View style={{ alignItems: "flex-end", gap: 6 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
                         {String(car.type || "").toLowerCase() === "ev" ? (
                           <View style={styles.saveBadge}>
-                            <ThemedText style={styles.saveBadgeText}>Save 12%</ThemedText>
+                            <ThemedText style={styles.saveBadgeText}>
+                              Save 12%
+                            </ThemedText>
                           </View>
                         ) : null}
                         <View style={styles.pricePill}>
                           <ThemedText style={styles.priceValue}>
-                            ${String(car.type || "").toLowerCase() === "ev" ? Math.round(car.price * 0.88) : car.price}
+                            $
+                            {String(car.type || "").toLowerCase() === "ev"
+                              ? Math.round(car.price * 0.88)
+                              : car.price}
                           </ThemedText>
-                          <ThemedText style={styles.priceUnit}>/ day</ThemedText>
+                          <ThemedText style={styles.priceUnit}>
+                            / day
+                          </ThemedText>
                         </View>
                       </View>
                     </View>
@@ -537,28 +610,34 @@ export default function SearchResultsScreen() {
                   <View style={styles.specRow}>
                     <View style={styles.specItem}>
                       <Ionicons name="location" size={14} color="#9BA1A6" />
-                      <ThemedText style={styles.specText}>{car.distance} km away</ThemedText>
+                      <ThemedText style={styles.specText}>
+                        {car.distance} km away
+                      </ThemedText>
                     </View>
                     <View style={styles.specItem}>
                       <Ionicons name="person" size={14} color="#9BA1A6" />
-                      <ThemedText style={styles.specText}>{car.seats ?? 5}</ThemedText>
+                      <ThemedText style={styles.specText}>
+                        {car.seats ?? 5}
+                      </ThemedText>
                     </View>
                     <View style={styles.specItem}>
                       <Ionicons name="settings" size={14} color="#9BA1A6" />
-                      <ThemedText style={styles.specText}>{car.transmission ?? "Automatic"}</ThemedText>
+                      <ThemedText style={styles.specText}>
+                        {car.transmission ?? "Automatic"}
+                      </ThemedText>
                     </View>
                     <View style={styles.specItem}>
                       <Ionicons name="car" size={14} color="#9BA1A6" />
-                      <ThemedText style={styles.specText}>{car.year ?? ""}</ThemedText>
+                      <ThemedText style={styles.specText}>
+                        {car.year ?? ""}
+                      </ThemedText>
                     </View>
-                    
                   </View>
                 </View>
               </TouchableOpacity>
             ))}
           </View>
         )}
-
       </ScrollView>
 
       {showFilter && (
@@ -566,7 +645,10 @@ export default function SearchResultsScreen() {
           <View
             style={[
               styles.modalCard,
-              { paddingBottom: Math.max(insets.bottom, 8), maxHeight: modalMaxHeight },
+              {
+                paddingBottom: Math.max(insets.bottom, 8),
+                maxHeight: modalMaxHeight,
+              },
             ]}
           >
             <View style={styles.modalHeaderRow}>
@@ -588,7 +670,7 @@ export default function SearchResultsScreen() {
                 initial={draftPickup}
                 onSelect={(s) => setDraftPickup(s)}
               />
-              <View style={styles.filterSection}> 
+              <View style={styles.filterSection}>
                 <ThemedText style={styles.filterLabel}>Dates</ThemedText>
                 <TouchableOpacity
                   style={styles.rangeInputContainer}
@@ -597,7 +679,11 @@ export default function SearchResultsScreen() {
                 >
                   <ThemedText style={styles.dateInputText}>
                     {draftStartDate && draftEndDate
-                      ? `${formatDisplay(draftStartDate)} ${to12HourFormat(draftPickupTime)} – ${formatDisplay(draftEndDate)} ${to12HourFormat(draftDropoffTime)}`
+                      ? `${formatDisplay(draftStartDate)} ${to12HourFormat(
+                          draftPickupTime
+                        )} – ${formatDisplay(draftEndDate)} ${to12HourFormat(
+                          draftDropoffTime
+                        )}`
                       : "Select dates"}
                   </ThemedText>
                 </TouchableOpacity>
@@ -606,7 +692,7 @@ export default function SearchResultsScreen() {
                 selectedVehicle={draftVehicle}
                 onVehicleSelect={setDraftVehicle as any}
               />
-              <View style={styles.filterSection}> 
+              <View style={styles.filterSection}>
                 <ThemedText style={styles.filterLabel}>Price range</ThemedText>
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <TextInput
@@ -616,7 +702,15 @@ export default function SearchResultsScreen() {
                     value={draftMinPrice}
                     onChangeText={setDraftMinPrice}
                     style={styles.priceInput}
-                    onFocus={() => setTimeout(() => filterScrollRef.current?.scrollToEnd({ animated: true }), 80)}
+                    onFocus={() =>
+                      setTimeout(
+                        () =>
+                          filterScrollRef.current?.scrollToEnd({
+                            animated: true,
+                          }),
+                        80
+                      )
+                    }
                   />
                   <TextInput
                     placeholder="Max"
@@ -625,7 +719,15 @@ export default function SearchResultsScreen() {
                     value={draftMaxPrice}
                     onChangeText={setDraftMaxPrice}
                     style={styles.priceInput}
-                    onFocus={() => setTimeout(() => filterScrollRef.current?.scrollToEnd({ animated: true }), 80)}
+                    onFocus={() =>
+                      setTimeout(
+                        () =>
+                          filterScrollRef.current?.scrollToEnd({
+                            animated: true,
+                          }),
+                        80
+                      )
+                    }
                   />
                 </View>
               </View>
@@ -635,13 +737,16 @@ export default function SearchResultsScreen() {
                 style={styles.modalButtonSecondary}
                 onPress={() => setShowFilter(false)}
               >
-                <ThemedText style={styles.modalButtonSecondaryText}>Cancel</ThemedText>
+                <ThemedText style={styles.modalButtonSecondaryText}>
+                  Cancel
+                </ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalButtonPrimary}
                 onPress={async () => {
                   try {
-                    const { status } = await Location.requestForegroundPermissionsAsync();
+                    const { status } =
+                      await Location.requestForegroundPermissionsAsync();
                     if (status === "granted") {
                       const pos = await Location.getCurrentPositionAsync({});
                       setDeviceLat(pos.coords.latitude);
@@ -654,9 +759,14 @@ export default function SearchResultsScreen() {
                     endDate: draftEndDate || "",
                     pickupTime: draftPickupTime || "",
                     dropoffTime: draftDropoffTime || "",
-                    pickupLocation: draftPickup?.label || (pickupLocation as string) || "",
-                    latitude: draftPickup ? String(draftPickup.lat) : ((latitude as string) || ""),
-                    longitude: draftPickup ? String(draftPickup.lon) : ((longitude as string) || ""),
+                    pickupLocation:
+                      draftPickup?.label || (pickupLocation as string) || "",
+                    latitude: draftPickup
+                      ? String(draftPickup.lat)
+                      : (latitude as string) || "",
+                    longitude: draftPickup
+                      ? String(draftPickup.lon)
+                      : (longitude as string) || "",
                     vehicleType: draftVehicle || "",
                     minPrice: draftMinPrice || "",
                     maxPrice: draftMaxPrice || "",
@@ -665,7 +775,9 @@ export default function SearchResultsScreen() {
                   setShowFilter(false);
                 }}
               >
-                <ThemedText style={styles.modalButtonPrimaryText}>Apply</ThemedText>
+                <ThemedText style={styles.modalButtonPrimaryText}>
+                  Apply
+                </ThemedText>
               </TouchableOpacity>
             </View>
           </View>
@@ -698,30 +810,30 @@ const styles = StyleSheet.create({
     backgroundColor: "#151718",
   },
   header: {
-    flexDirection: "column",
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  headerBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 16,
   },
   headerSide: {
-    width: 64,
+    width: 44,
   },
   backButton: {
-    paddingVertical: 8,
-    paddingRight: 12,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
   backText: {
     fontSize: 16,
     color: "#fff",
   },
   title: {
-    fontSize: 16,
-    fontWeight: "700",
     color: "#fff",
+    fontSize: 20,
+    fontWeight: "700",
     textAlign: "center",
   },
   content: {

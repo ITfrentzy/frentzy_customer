@@ -3,10 +3,20 @@ import { ThemedView } from "@/components/ThemedView";
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { getExampleNumber, isPossiblePhoneNumber, isValidPhoneNumber, parsePhoneNumber } from "libphonenumber-js";
+import {
+  getExampleNumber,
+  isPossiblePhoneNumber,
+  isValidPhoneNumber,
+  parsePhoneNumber,
+} from "libphonenumber-js";
 import examples from "libphonenumber-js/examples.mobile.json";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import PhoneInput from "react-native-phone-number-input";
 
 export default function LoginScreen() {
@@ -21,8 +31,10 @@ export default function LoginScreen() {
   const [raw, setRaw] = useState<string>("");
   const [selectedCode, setSelectedCode] = useState<string>("SA");
   const [selectedLabel, setSelectedLabel] = useState<string>("🇸🇦");
-  const [selectedCallingCode, setSelectedCallingCode] = useState<string>("+966");
-  const [phonePlaceholder, setPhonePlaceholder] = useState<string>("Phone number");
+  const [selectedCallingCode, setSelectedCallingCode] =
+    useState<string>("+966");
+  const [phonePlaceholder, setPhonePlaceholder] =
+    useState<string>("Phone number");
 
   const isoToEmojiFlag = (iso2?: string) => {
     if (!iso2) return "";
@@ -36,7 +48,11 @@ export default function LoginScreen() {
   const computePlaceholder = (iso2: string) => {
     try {
       const ex: any = getExampleNumber(iso2 as any, examples as any);
-      const national: string = (ex?.formatNational?.() || ex?.nationalNumber || "").toString();
+      const national: string = (
+        ex?.formatNational?.() ||
+        ex?.nationalNumber ||
+        ""
+      ).toString();
       if (!national) return "Phone number";
       const digits = national.replace(/\D+/g, "");
       const keep = Math.min(2, Math.max(1, digits.length));
@@ -96,7 +112,9 @@ export default function LoginScreen() {
   // Sync selected country from outside via route params: country / defaultCode / iso2
   useEffect(() => {
     const p: any = params || {};
-    const incoming = (p.country || p.defaultCode || p.iso2 || "").toString().toUpperCase();
+    const incoming = (p.country || p.defaultCode || p.iso2 || "")
+      .toString()
+      .toUpperCase();
     if (incoming && incoming.length === 2 && incoming !== selectedCode) {
       setSelectedCode(incoming);
       setSelectedLabel(isoToEmojiFlag(incoming));
@@ -108,7 +126,9 @@ export default function LoginScreen() {
   useEffect(() => {
     const p: any = params || {};
     const incomingPhone = typeof p.phone === "string" ? p.phone : undefined;
-    const shouldClear = (p.clear === "1" || p.clear === 1 || p.clear === true) as boolean;
+    const shouldClear = (p.clear === "1" ||
+      p.clear === 1 ||
+      p.clear === true) as boolean;
     if (shouldClear) {
       prevDigitsRef.current = "";
       prevPossibleRef.current = false;
@@ -126,7 +146,10 @@ export default function LoginScreen() {
     // Recompute possibility baseline for current digits with new country
     try {
       const digits = prevDigitsRef.current || "";
-      const possible = isPossiblePhoneNumber(digits as any, selectedCode as any) as unknown as boolean;
+      const possible = isPossiblePhoneNumber(
+        digits as any,
+        selectedCode as any
+      ) as unknown as boolean;
       prevPossibleRef.current = possible;
     } catch {
       prevPossibleRef.current = true;
@@ -139,73 +162,126 @@ export default function LoginScreen() {
     if (!isValid || !phoneE164) return;
     await requestOtp(phoneE164);
     // Navigate to separate OTP screen; final navigation happens after verification
-    router.replace({ pathname: "/verify-otp" as any, params: { ...(params as any), phone: phoneE164 } as any });
+    router.replace({
+      pathname: "/verify-otp" as any,
+      params: { ...(params as any), phone: phoneE164 } as any,
+    });
   };
 
   return (
     <>
-    <ThemedView style={styles.container}>
-      <ThemedText style={styles.title}>Sign in</ThemedText>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <ThemedView style={styles.container}>
         <TouchableOpacity
-          onPress={() => (phoneRef as any)?.current?.setState?.({ modalVisible: true })}
-          activeOpacity={0.7}
-          style={styles.externalFlagButton}
+          onPress={() => router.back()}
+          activeOpacity={0.8}
+          style={styles.backButtonAbs}
         >
-          <Ionicons name="chevron-down" size={16} color="#9BA1A6" />
-          <ThemedText style={styles.flagText}>{selectedLabel}</ThemedText>
-          <ThemedText style={styles.callingCodeText}>{selectedCallingCode}</ThemedText>
+          <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          {/* @ts-expect-error Upstream types not compatible with React 19 JSX */}
-          <PhoneInput
-            ref={phoneRef}
-            defaultCode={selectedCode as any}
-            key={`phone-${selectedCode}`}
-            value={raw}
-            onChangeText={handlePhoneChange}
-            onChangeCountry={(country: any) => {
-              const iso2 = (country?.cca2 || country?.code || country?.alpha2 || selectedCode || "SA").toString().toUpperCase();
-              setSelectedCode(iso2);
-              setSelectedLabel(isoToEmojiFlag(iso2));
-              const calling = country?.callingCode;
-              const cc = Array.isArray(calling) ? calling[0] : calling;
-              if (cc) setSelectedCallingCode(`+${cc}`);
-            }}
-            textInputProps={{
-              editable: !loading,
-              placeholder: phonePlaceholder,
-              keyboardType: "phone-pad",
-              placeholderTextColor: "#9BA1A6",
-              textContentType: "telephoneNumber",
-              autoComplete: "tel" as any,
-            }}
-            layout="first"
-            containerStyle={styles.phoneInputContainer}
-            textContainerStyle={styles.phoneTextContainer}
-            textInputStyle={styles.phoneTextInput}
-            codeTextStyle={styles.hiddenCallingCode}
-            flagButtonStyle={styles.hiddenFlagButton}
-            countryPickerButtonStyle={styles.hiddenFlagButton}
-            disableArrowIcon={true}
-            withDarkTheme
-          />
+        <ThemedText style={styles.title}>Sign in</ThemedText>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TouchableOpacity
+            onPress={() =>
+              (phoneRef as any)?.current?.setState?.({ modalVisible: true })
+            }
+            activeOpacity={0.7}
+            style={styles.externalFlagButton}
+          >
+            <Ionicons name="chevron-down" size={16} color="#9BA1A6" />
+            <ThemedText style={styles.flagText}>{selectedLabel}</ThemedText>
+            <ThemedText style={styles.callingCodeText}>
+              {selectedCallingCode}
+            </ThemedText>
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            {/* @ts-expect-error Upstream types not compatible with React 19 JSX */}
+            <PhoneInput
+              ref={phoneRef}
+              defaultCode={selectedCode as any}
+              key={`phone-${selectedCode}`}
+              value={raw}
+              onChangeText={handlePhoneChange}
+              onChangeCountry={(country: any) => {
+                const iso2 = (
+                  country?.cca2 ||
+                  country?.code ||
+                  country?.alpha2 ||
+                  selectedCode ||
+                  "SA"
+                )
+                  .toString()
+                  .toUpperCase();
+                setSelectedCode(iso2);
+                setSelectedLabel(isoToEmojiFlag(iso2));
+                const calling = country?.callingCode;
+                const cc = Array.isArray(calling) ? calling[0] : calling;
+                if (cc) setSelectedCallingCode(`+${cc}`);
+              }}
+              textInputProps={{
+                editable: !loading,
+                placeholder: phonePlaceholder,
+                keyboardType: "phone-pad",
+                placeholderTextColor: "#9BA1A6",
+                textContentType: "telephoneNumber",
+                autoComplete: "tel" as any,
+              }}
+              layout="first"
+              containerStyle={styles.phoneInputContainer}
+              textContainerStyle={styles.phoneTextContainer}
+              textInputStyle={styles.phoneTextInput}
+              codeTextStyle={styles.hiddenCallingCode}
+              flagButtonStyle={styles.hiddenFlagButton}
+              countryPickerButtonStyle={styles.hiddenFlagButton}
+              disableArrowIcon={true}
+              withDarkTheme
+            />
+          </View>
         </View>
-      </View>
-      {(() => { const disabledSend = loading || !isValid || raw.length === 0; return (
-      <TouchableOpacity style={[styles.button, disabledSend && { opacity: 0.6 }]} onPress={onSubmit} disabled={disabledSend}>
-        {loading ? <ActivityIndicator color="#151718" /> : <ThemedText style={styles.buttonText}>Send code</ThemedText>}
-      </TouchableOpacity>
-      ); })()}
-      
-    </ThemedView>
+        {(() => {
+          const disabledSend = loading || !isValid || raw.length === 0;
+          return (
+            <TouchableOpacity
+              style={[styles.button, disabledSend && { opacity: 0.6 }]}
+              onPress={onSubmit}
+              disabled={disabledSend}
+            >
+              {loading ? (
+                <ActivityIndicator color="#151718" />
+              ) : (
+                <ThemedText style={styles.buttonText}>Send code</ThemedText>
+              )}
+            </TouchableOpacity>
+          );
+        })()}
+      </ThemedView>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#151718", padding: 20, justifyContent: "center" },
-  title: { color: "#fff", fontSize: 24, fontWeight: "700", marginBottom: 24, textAlign: "center" },
+  container: {
+    flex: 1,
+    backgroundColor: "#151718",
+    padding: 20,
+    justifyContent: "center",
+  },
+  backButtonAbs: {
+    position: "absolute",
+    top: 56,
+    left: 20,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  title: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 24,
+    textAlign: "center",
+  },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 10,
@@ -227,7 +303,7 @@ const styles = StyleSheet.create({
   phoneInputContainer: {
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 10,
-    
+
     borderColor: "rgba(230, 232, 235, 0.14)",
     width: "100%",
     height: 48,
@@ -244,7 +320,7 @@ const styles = StyleSheet.create({
     height: 48,
     paddingTop: 0,
     paddingBottom: 0,
-    marginLeft: 15
+    marginLeft: 15,
   },
   hiddenCallingCode: {
     position: "absolute",
@@ -307,5 +383,3 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
 });
-
-

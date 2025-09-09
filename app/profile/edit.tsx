@@ -7,7 +7,19 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -25,15 +37,21 @@ export default function EditProfileScreen() {
   const [showNationalityList, setShowNationalityList] = useState(false);
   const [codeSearch, setCodeSearch] = useState("");
   const [nationalitySearch, setNationalitySearch] = useState("");
-  const [countries, setCountries] = useState<Array<{ name: string; code: string; flag: string; iso2?: string }>>([]);
+  const [countries, setCountries] = useState<
+    Array<{ name: string; code: string; flag: string; iso2?: string }>
+  >([]);
   const [codesLoading, setCodesLoading] = useState(false);
   const [examplesMap, setExamplesMap] = useState<Record<string, string>>({});
-  const [selectedIso2, setSelectedIso2] = useState<string | undefined>(undefined);
+  const [selectedIso2, setSelectedIso2] = useState<string | undefined>(
+    undefined
+  );
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { height: windowHeight } = useWindowDimensions();
   const scrollRef = useRef<ScrollView | null>(null);
   const [scrollY, setScrollY] = useState(0);
-  const fieldPositionsRef = useRef<Record<string, { y: number; height: number }>>({});
+  const fieldPositionsRef = useRef<
+    Record<string, { y: number; height: number }>
+  >({});
   const registerField = (key: string) => (e: any) => {
     const y = e?.nativeEvent?.layout?.y || 0;
     const height = e?.nativeEvent?.layout?.height || 0;
@@ -67,7 +85,9 @@ export default function EditProfileScreen() {
 
   // Single date picker modal
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [datePickerTarget, setDatePickerTarget] = useState<"id" | "dl" | "dob" | null>(null);
+  const [datePickerTarget, setDatePickerTarget] = useState<
+    "id" | "dl" | "dob" | null
+  >(null);
   const [tempDate, setTempDate] = useState<string>(toDateString(new Date()));
   const [iosTempDate, setIosTempDate] = useState<Date>(new Date());
   const [showAndroidNativePicker, setShowAndroidNativePicker] = useState(false);
@@ -87,7 +107,8 @@ export default function EditProfileScreen() {
     setTempDate(day.dateString);
   };
   const confirmDate = () => {
-    const finalDate = Platform.OS === "ios" ? toDateString(iosTempDate) : tempDate;
+    const finalDate =
+      Platform.OS === "ios" ? toDateString(iosTempDate) : tempDate;
     if (datePickerTarget === "id") setIdExpiry(finalDate);
     if (datePickerTarget === "dl") setDlExpiry(finalDate);
     if (datePickerTarget === "dob") setDob(finalDate);
@@ -96,7 +117,10 @@ export default function EditProfileScreen() {
 
   // Per-country national prefix and local number length (from ITU E.164 overview via IBAN table)
   // National prefix is used domestically and should be omitted with international country code
-  const codeToNumbering: Record<string, { nationalPrefix: string | null; maxDigits: number; hint: string }> = {
+  const codeToNumbering: Record<
+    string,
+    { nationalPrefix: string | null; maxDigits: number; hint: string }
+  > = {
     "+966": { nationalPrefix: "0", maxDigits: 9, hint: "5XXXXXXXX" }, // Saudi Arabia
     "+971": { nationalPrefix: "0", maxDigits: 9, hint: "5XXXXXXXX" }, // United Arab Emirates (8 to 9 digits → max 9)
     "+965": { nationalPrefix: null, maxDigits: 8, hint: "5XXXXXXX" }, // Kuwait
@@ -125,10 +149,21 @@ export default function EditProfileScreen() {
     "+218": { nationalPrefix: "0", maxDigits: 9, hint: "9XXXXXXXX" }, // Libya
   };
 
-  const numbering = (codeToNumbering[phoneCode] || { nationalPrefix: null, maxDigits: 10, hint: "XXXXXXXXXX" });
-  const phoneExample = selectedIso2 && examplesMap[selectedIso2] ? examplesMap[selectedIso2] : undefined;
-  const phoneExampleDigits = phoneExample ? phoneExample.replace(/\D/g, "") : "";
-  const phoneMax = phoneExampleDigits ? phoneExampleDigits.length : numbering.maxDigits;
+  const numbering = codeToNumbering[phoneCode] || {
+    nationalPrefix: null,
+    maxDigits: 10,
+    hint: "XXXXXXXXXX",
+  };
+  const phoneExample =
+    selectedIso2 && examplesMap[selectedIso2]
+      ? examplesMap[selectedIso2]
+      : undefined;
+  const phoneExampleDigits = phoneExample
+    ? phoneExample.replace(/\D/g, "")
+    : "";
+  const phoneMax = phoneExampleDigits
+    ? phoneExampleDigits.length
+    : numbering.maxDigits;
   const phoneFirst3 = phoneExampleDigits ? phoneExampleDigits.slice(0, 3) : "";
   const phoneHintBase = phoneFirst3 || numbering.hint;
   const phoneHint = numbering.hint;
@@ -178,7 +213,8 @@ export default function EditProfileScreen() {
 
   // Keep dropdown card above the keyboard
   useEffect(() => {
-    const onShow = (e: any) => setKeyboardHeight(e?.endCoordinates?.height || 0);
+    const onShow = (e: any) =>
+      setKeyboardHeight(e?.endCoordinates?.height || 0);
     const onHide = () => setKeyboardHeight(0);
     const subShow = Keyboard.addListener("keyboardDidShow", onShow);
     const subHide = Keyboard.addListener("keyboardDidHide", onHide);
@@ -220,7 +256,9 @@ export default function EditProfileScreen() {
     const loadCodes = async () => {
       try {
         setCodesLoading(true);
-        const res = await fetch("https://countriesnow.space/api/v0.1/countries/codes");
+        const res = await fetch(
+          "https://countriesnow.space/api/v0.1/countries/codes"
+        );
         const json = await res.json();
         const toFlag = (iso2: string | undefined): string => {
           if (!iso2) return "";
@@ -231,13 +269,23 @@ export default function EditProfileScreen() {
             .map((ch) => String.fromCodePoint(127397 + ch.charCodeAt(0)))
             .join("");
         };
-        const mapped: Array<{ name: string; code: string; flag: string; iso2?: string }> = ((json && json.data) || [])
+        const mapped: Array<{
+          name: string;
+          code: string;
+          flag: string;
+          iso2?: string;
+        }> = ((json && json.data) || [])
           .map((c: any) => {
             const name = c?.name as string | undefined;
             const code = c?.dial_code as string | undefined;
             const iso2 = c?.code as string | undefined;
             if (!name || !code) return null;
-            return { name, code, flag: toFlag(iso2), iso2: iso2?.toUpperCase() };
+            return {
+              name,
+              code,
+              flag: toFlag(iso2),
+              iso2: iso2?.toUpperCase(),
+            };
           })
           .filter(Boolean)
           .sort((a: any, b: any) => a.name.localeCompare(b.name));
@@ -255,7 +303,9 @@ export default function EditProfileScreen() {
   useEffect(() => {
     const loadExamples = async () => {
       try {
-        const res = await fetch("https://cdn.jsdelivr.net/npm/libphonenumber-js@1.10.53/examples.mobile.json");
+        const res = await fetch(
+          "https://cdn.jsdelivr.net/npm/libphonenumber-js@1.10.53/examples.mobile.json"
+        );
         const json = await res.json();
         setExamplesMap(json || {});
       } catch (e) {
@@ -298,7 +348,7 @@ export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top + 8 }]}>
+    <ThemedView style={styles.container}>
       <View style={[styles.headerRow, { marginBottom: 10 }]}>
         <View style={styles.headerSide}>
           <TouchableOpacity
@@ -309,17 +359,26 @@ export default function EditProfileScreen() {
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
-        <ThemedText style={styles.headerTitle}>Profile</ThemedText>
+        <ThemedText style={styles.headerTitle} numberOfLines={1}>
+          Profile
+        </ThemedText>
         <View style={styles.headerSide} />
       </View>
-      
+
       {loading ? (
         <ActivityIndicator color="#fff" />
       ) : (
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={10} style={{ flex: 1 }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={10}
+          style={{ flex: 1 }}
+        >
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={[styles.form, { paddingBottom: 16 + extraScrollPadding }]}
+            contentContainerStyle={[
+              styles.form,
+              { paddingBottom: 24 + extraScrollPadding },
+            ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             ref={(r) => {
@@ -328,186 +387,300 @@ export default function EditProfileScreen() {
             onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
             scrollEventThrottle={16}
           >
-          <ThemedText style={styles.sectionLabel}>Renter Type</ThemedText>
-          <View style={styles.statusGrid}>
-            {[{ key: "citizen", label: "Citizen" }, { key: "resident", label: "Resident" }, { key: "gulf", label: "Gulf citizen" }, { key: "visitor", label: "Visitor" }].map((opt) => (
-              <TouchableOpacity
-                key={opt.key}
-                style={[styles.statusButton, status === (opt.key as any) && styles.statusButtonActive]}
-                onPress={() => setStatus(opt.key as any)}
-                activeOpacity={0.8}
-              >
-                <ThemedText style={[styles.statusText, status === (opt.key as any) && styles.statusTextActive]}>{opt.label}</ThemedText>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <ThemedText style={styles.label}>Full name</ThemedText>
-          <TextInput
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Your name"
-            placeholderTextColor="#9BA1A6"
-            style={styles.input}
-            onFocus={() => scrollToField("fullName")}
-            onLayout={registerField("fullName")}
-          />
-          <ThemedText style={styles.label}>Email</ThemedText>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholder="Email"
-            placeholderTextColor="#9BA1A6"
-            style={styles.input}
-            onFocus={() => scrollToField("email")}
-            onLayout={registerField("email")}
-          />
-          {/* Identity section */}
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.inlineLabelRow}>
-                <ThemedText style={styles.label}>{idLabel} <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText></ThemedText>
-                {status === "visitor" ? (
-                  <Ionicons name="information-circle-outline" size={14} color="#9BA1A6" />
-                ) : null}
+            <View style={styles.sectionCard}>
+              <ThemedText style={styles.sectionTitle}>Basic info</ThemedText>
+              <ThemedText style={styles.sectionLabel}>Renter Type</ThemedText>
+              <View style={styles.statusGrid}>
+                {[
+                  { key: "citizen", label: "Citizen" },
+                  { key: "resident", label: "Resident" },
+                  { key: "gulf", label: "Gulf citizen" },
+                  { key: "visitor", label: "Visitor" },
+                ].map((opt) => (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[
+                      styles.statusButton,
+                      status === (opt.key as any) && styles.statusButtonActive,
+                    ]}
+                    onPress={() => setStatus(opt.key as any)}
+                    activeOpacity={0.8}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.statusText,
+                        status === (opt.key as any) && styles.statusTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))}
               </View>
+              <ThemedText style={styles.label}>Full name</ThemedText>
               <TextInput
-                value={idNumber}
-                onChangeText={(t) => setIdNumber(t.replace(/[^0-9A-Za-z]/g, ""))}
-                keyboardType={status === "visitor" ? "default" : "number-pad"}
-                placeholder={status === "resident" ? "Starts with 2, 10 digits" : ""}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Your name"
                 placeholderTextColor="#9BA1A6"
                 style={styles.input}
-                onFocus={() => scrollToField("idNumber")}
-                onLayout={registerField("idNumber")}
-                maxLength={status === "resident" ? 10 : 32}
+                onFocus={() => scrollToField("fullName")}
+                onLayout={registerField("fullName")}
+              />
+              <ThemedText style={styles.label}>Email</ThemedText>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="Email"
+                placeholderTextColor="#9BA1A6"
+                style={styles.input}
+                onFocus={() => scrollToField("email")}
+                onLayout={registerField("email")}
               />
             </View>
-            {status === "resident" ? (
-              <View style={{ flex: 0.5 }}>
-                <ThemedText style={styles.label}>Version <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText></ThemedText>
-                <View style={styles.versionRow}>
-                  <TouchableOpacity style={styles.versionBtn} onPress={() => setIdVersion((v) => Math.max(1, v - 1))}>
-                    <ThemedText style={styles.versionBtnText}>—</ThemedText>
+
+            <View style={styles.sectionCard}>
+              <ThemedText style={styles.sectionTitle}>
+                Identity & licenses
+              </ThemedText>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.inlineLabelRow}>
+                    <ThemedText style={styles.label}>
+                      {idLabel}{" "}
+                      <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    </ThemedText>
+                    {status === "visitor" ? (
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={14}
+                        color="#9BA1A6"
+                      />
+                    ) : null}
+                  </View>
+                  <TextInput
+                    value={idNumber}
+                    onChangeText={(t) =>
+                      setIdNumber(t.replace(/[^0-9A-Za-z]/g, ""))
+                    }
+                    keyboardType={
+                      status === "visitor" ? "default" : "number-pad"
+                    }
+                    placeholder={
+                      status === "resident" ? "Starts with 2, 10 digits" : ""
+                    }
+                    placeholderTextColor="#9BA1A6"
+                    style={styles.input}
+                    onFocus={() => scrollToField("idNumber")}
+                    onLayout={registerField("idNumber")}
+                    maxLength={status === "resident" ? 10 : 32}
+                  />
+                </View>
+                {status === "resident" ? (
+                  <View style={{ flex: 0.5 }}>
+                    <ThemedText style={styles.label}>
+                      Version{" "}
+                      <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    </ThemedText>
+                    <View style={styles.versionRow}>
+                      <TouchableOpacity
+                        style={styles.versionBtn}
+                        onPress={() => setIdVersion((v) => Math.max(1, v - 1))}
+                      >
+                        <ThemedText style={styles.versionBtnText}>—</ThemedText>
+                      </TouchableOpacity>
+                      <ThemedText style={styles.versionValue}>
+                        {idVersion}
+                      </ThemedText>
+                      <TouchableOpacity
+                        style={styles.versionBtn}
+                        onPress={() => setIdVersion((v) => v + 1)}
+                      >
+                        <ThemedText style={styles.versionBtnText}>+</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+
+              {status === "visitor" ? (
+                <View>
+                  <View style={styles.inlineLabelRow}>
+                    <ThemedText style={styles.label}>Border No</ThemedText>
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={14}
+                      color="#9BA1A6"
+                    />
+                  </View>
+                  <TextInput
+                    value={borderNumber}
+                    onChangeText={(t) => setBorderNumber(t.replace(/\D/g, ""))}
+                    keyboardType="number-pad"
+                    placeholderTextColor="#9BA1A6"
+                    style={styles.input}
+                    onFocus={() => scrollToField("borderNumber")}
+                    onLayout={registerField("borderNumber")}
+                    maxLength={16}
+                  />
+                </View>
+              ) : null}
+
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <ThemedText
+                    style={[styles.label, styles.labelTight]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {idExpiryLabel}{" "}
+                    <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                  </ThemedText>
+                  <TouchableOpacity
+                    style={[styles.input, styles.codeSelector]}
+                    onPress={() => openDatePicker("id", idExpiry)}
+                    activeOpacity={0.7}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.codeText,
+                        !idExpiry && { color: "#9BA1A6", fontWeight: "400" },
+                      ]}
+                    >
+                      {idExpiry || "YYYY-MM-DD"}
+                    </ThemedText>
+                    <Ionicons name="calendar" size={16} color="#9BA1A6" />
                   </TouchableOpacity>
-                  <ThemedText style={styles.versionValue}>{idVersion}</ThemedText>
-                  <TouchableOpacity style={styles.versionBtn} onPress={() => setIdVersion((v) => v + 1)}>
-                    <ThemedText style={styles.versionBtnText}>+</ThemedText>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText
+                    style={[styles.label, styles.labelTight]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Driver License Expiry Date{" "}
+                    <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                  </ThemedText>
+                  <TouchableOpacity
+                    style={[styles.input, styles.codeSelector]}
+                    onPress={() => openDatePicker("dl", dlExpiry)}
+                    activeOpacity={0.7}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.codeText,
+                        !dlExpiry && { color: "#9BA1A6", fontWeight: "400" },
+                      ]}
+                    >
+                      {dlExpiry || "YYYY-MM-DD"}
+                    </ThemedText>
+                    <Ionicons name="calendar" size={16} color="#9BA1A6" />
                   </TouchableOpacity>
                 </View>
               </View>
-            ) : null}
-          </View>
 
-          {status === "visitor" ? (
-            <View>
-              <View style={styles.inlineLabelRow}>
-                <ThemedText style={styles.label}>Border No</ThemedText>
-                <Ionicons name="information-circle-outline" size={14} color="#9BA1A6" />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <ThemedText
+                    style={[styles.label, styles.labelTight]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Driver License No.{" "}
+                    <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                  </ThemedText>
+                  <TextInput
+                    value={driverLicenseNo}
+                    onChangeText={(t) =>
+                      setDriverLicenseNo(t.replace(/[^0-9A-Za-z]/g, ""))
+                    }
+                    keyboardType="default"
+                    placeholderTextColor="#9BA1A6"
+                    style={styles.input}
+                    onFocus={() => scrollToField("driverLicenseNo")}
+                    onLayout={registerField("driverLicenseNo")}
+                    maxLength={20}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText
+                    style={[styles.label, styles.labelTight]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Date Of Birth{" "}
+                    <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                  </ThemedText>
+                  <TouchableOpacity
+                    style={[styles.input, styles.codeSelector]}
+                    onPress={() => openDatePicker("dob", dob)}
+                    activeOpacity={0.7}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.codeText,
+                        !dob && { color: "#9BA1A6", fontWeight: "400" },
+                      ]}
+                    >
+                      {dob || "YYYY-MM-DD"}
+                    </ThemedText>
+                    <Ionicons name="calendar" size={16} color="#9BA1A6" />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <TextInput
-                value={borderNumber}
-                onChangeText={(t) => setBorderNumber(t.replace(/\D/g, ""))}
-                keyboardType="number-pad"
-                placeholderTextColor="#9BA1A6"
-                style={styles.input}
-                onFocus={() => scrollToField("borderNumber")}
-                onLayout={registerField("borderNumber")}
-                maxLength={16}
-              />
-            </View>
-          ) : null}
 
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <ThemedText style={styles.label}>{idExpiryLabel} <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText></ThemedText>
-              <TouchableOpacity
-                style={[styles.input, styles.codeSelector]}
-                onPress={() => openDatePicker("id", idExpiry)}
-                activeOpacity={0.7}
-              >
-                <ThemedText style={[styles.codeText, !idExpiry && { color: "#9BA1A6", fontWeight: "400" }]}>
-                  {idExpiry || "YYYY-MM-DD"}
-                </ThemedText>
-                <Ionicons name="calendar" size={16} color="#9BA1A6" />
-              </TouchableOpacity>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={styles.label}>
+                    Nationality{" "}
+                    <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                  </ThemedText>
+                  <TouchableOpacity
+                    style={[styles.input, styles.codeSelector]}
+                    onPress={() => setShowNationalityList(true)}
+                    activeOpacity={0.7}
+                  >
+                    <ThemedText style={styles.codeText}>
+                      {nationality || "Select nationality"}
+                    </ThemedText>
+                    <Ionicons name="chevron-down" size={16} color="#9BA1A6" />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <ThemedText style={styles.label}>Driver License Expiry Date <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText></ThemedText>
-              <TouchableOpacity
-                style={[styles.input, styles.codeSelector]}
-                onPress={() => openDatePicker("dl", dlExpiry)}
-                activeOpacity={0.7}
-              >
-                <ThemedText style={[styles.codeText, !dlExpiry && { color: "#9BA1A6", fontWeight: "400" }]}>
-                  {dlExpiry || "YYYY-MM-DD"}
-                </ThemedText>
-                <Ionicons name="calendar" size={16} color="#9BA1A6" />
-              </TouchableOpacity>
-            </View>
-          </View>
 
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <ThemedText style={styles.label}>Driver License No. <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText></ThemedText>
-              <TextInput
-                value={driverLicenseNo}
-                onChangeText={(t) => setDriverLicenseNo(t.replace(/[^0-9A-Za-z]/g, ""))}
-                keyboardType="default"
-                placeholderTextColor="#9BA1A6"
-                style={styles.input}
-                onFocus={() => scrollToField("driverLicenseNo")}
-                onLayout={registerField("driverLicenseNo")}
-                maxLength={20}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <ThemedText style={styles.label}>Date Of Birth <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText></ThemedText>
-              <TouchableOpacity
-                style={[styles.input, styles.codeSelector]}
-                onPress={() => openDatePicker("dob", dob)}
-                activeOpacity={0.7}
-              >
-                <ThemedText style={[styles.codeText, !dob && { color: "#9BA1A6", fontWeight: "400" }]}>
-                  {dob || "YYYY-MM-DD"}
-                </ThemedText>
-                <Ionicons name="calendar" size={16} color="#9BA1A6" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <ThemedText style={styles.label}>Nationality <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText></ThemedText>
-              <TouchableOpacity
-                style={[styles.input, styles.codeSelector]}
-                onPress={() => setShowNationalityList(true)}
-                activeOpacity={0.7}
-              >
-                <ThemedText style={styles.codeText}>{nationality || "Select nationality"}</ThemedText>
-                <Ionicons name="chevron-down" size={16} color="#9BA1A6" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-        
-          <TouchableOpacity style={[styles.button, { marginTop: 16, marginBottom: 8 }]} onPress={onSave} disabled={saving}>
-            {saving ? (
-              <ActivityIndicator color="#151718" />
-            ) : (
-              <ThemedText style={styles.buttonText}>Save</ThemedText>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.button,
+                { marginHorizontal: 16, marginTop: 8, marginBottom: 24 },
+              ]}
+              onPress={onSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator color="#151718" />
+              ) : (
+                <ThemedText style={styles.buttonText}>Save changes</ThemedText>
+              )}
+            </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
       )}
-      
+
       {showCodeList ? (
         <View style={styles.dropdownOverlay}>
-          <View style={[styles.dropdownCard, { marginBottom: keyboardHeight, maxHeight: dropdownMaxHeight }]}>
+          <View
+            style={[
+              styles.dropdownCard,
+              { marginBottom: keyboardHeight, maxHeight: dropdownMaxHeight },
+            ]}
+          >
             <View style={styles.dropdownHeaderRow}>
-              <ThemedText style={styles.dropdownTitle}>Select country code</ThemedText>
+              <ThemedText style={styles.dropdownTitle}>
+                Select country code
+              </ThemedText>
               <TouchableOpacity onPress={() => setShowCodeList(false)}>
                 <Ionicons name="close" size={20} color="#fff" />
               </TouchableOpacity>
@@ -519,27 +692,40 @@ export default function EditProfileScreen() {
               onChangeText={setCodeSearch}
               style={styles.dropdownSearch}
             />
-            <ScrollView style={{ maxHeight: listMaxHeight }} showsVerticalScrollIndicator={false}>
-              {(countries || []).filter((c) =>
-                c.name.toLowerCase().includes(codeSearch.toLowerCase()) || c.code.includes(codeSearch)
-              ).map((c) => (
-                <TouchableOpacity
-                  key={c.code + c.name}
-                  style={styles.dropdownItemRow}
-                  onPress={() => {
-                    setPhoneCode(c.code);
-                    setPhoneFlag(c.flag);
-                    setShowCodeList(false);
-                    setCodeSearch("");
-                  }}
-                >
-                  <ThemedText style={styles.dropdownFlag}>{c.flag}</ThemedText>
-                  <View style={{ flex: 1 }}>
-                    <ThemedText style={styles.dropdownCountry}>{c.name}</ThemedText>
-                    <ThemedText style={styles.dropdownCode}>{c.code}</ThemedText>
-                  </View>
-                </TouchableOpacity>
-              ))}
+            <ScrollView
+              style={{ maxHeight: listMaxHeight }}
+              showsVerticalScrollIndicator={false}
+            >
+              {(countries || [])
+                .filter(
+                  (c) =>
+                    c.name.toLowerCase().includes(codeSearch.toLowerCase()) ||
+                    c.code.includes(codeSearch)
+                )
+                .map((c) => (
+                  <TouchableOpacity
+                    key={c.code + c.name}
+                    style={styles.dropdownItemRow}
+                    onPress={() => {
+                      setPhoneCode(c.code);
+                      setPhoneFlag(c.flag);
+                      setShowCodeList(false);
+                      setCodeSearch("");
+                    }}
+                  >
+                    <ThemedText style={styles.dropdownFlag}>
+                      {c.flag}
+                    </ThemedText>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={styles.dropdownCountry}>
+                        {c.name}
+                      </ThemedText>
+                      <ThemedText style={styles.dropdownCode}>
+                        {c.code}
+                      </ThemedText>
+                    </View>
+                  </TouchableOpacity>
+                ))}
             </ScrollView>
           </View>
         </View>
@@ -564,22 +750,38 @@ export default function EditProfileScreen() {
         />
       ) : null}
       {/* Single Date Picker Modal */}
-      <Modal visible={datePickerOpen} animationType="fade" transparent onRequestClose={() => setDatePickerOpen(false)}>
+      <Modal
+        visible={datePickerOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDatePickerOpen(false)}
+      >
         <View style={styles.dropdownOverlay}>
-          <View style={[styles.dropdownCard, { paddingBottom: 8 }]}> 
+          <View style={[styles.dropdownCard, { paddingBottom: 8 }]}>
             <View style={styles.dropdownHeaderRow}>
               <ThemedText style={styles.dropdownTitle}>Select date</ThemedText>
               <TouchableOpacity onPress={confirmDate}>
-                <ThemedText style={{ color: "#fff", fontWeight: "700" }}>Done</ThemedText>
+                <ThemedText style={{ color: "#fff", fontWeight: "700" }}>
+                  Done
+                </ThemedText>
               </TouchableOpacity>
             </View>
             {Platform.OS === "ios" ? (
-              <View style={{ backgroundColor: "#1b1e1f", borderRadius: 12, padding: 8, alignItems: "center" }}>
+              <View
+                style={{
+                  backgroundColor: "#1b1e1f",
+                  borderRadius: 12,
+                  padding: 8,
+                  alignItems: "center",
+                }}
+              >
                 <DateTimePicker
                   value={iosTempDate}
                   mode="date"
                   display="spinner"
-                  maximumDate={datePickerTarget === "dob" ? new Date() : undefined}
+                  maximumDate={
+                    datePickerTarget === "dob" ? new Date() : undefined
+                  }
                   onChange={(e, d) => {
                     if (d) setIosTempDate(d);
                   }}
@@ -590,9 +792,19 @@ export default function EditProfileScreen() {
               <Calendar
                 style={{ alignSelf: "stretch" }}
                 current={tempDate}
-                maxDate={datePickerTarget === "dob" ? toDateString(new Date()) : undefined}
+                maxDate={
+                  datePickerTarget === "dob"
+                    ? toDateString(new Date())
+                    : undefined
+                }
                 onDayPress={onSelectDate}
-                markedDates={{ [tempDate]: { selected: true, selectedColor: "#fff", selectedTextColor: "#000" } }}
+                markedDates={{
+                  [tempDate]: {
+                    selected: true,
+                    selectedColor: "#fff",
+                    selectedTextColor: "#000",
+                  },
+                }}
                 enableSwipeMonths
                 hideExtraDays={false}
                 showSixWeeks
@@ -611,8 +823,24 @@ export default function EditProfileScreen() {
             )}
             {Platform.OS !== "ios" ? (
               <View style={{ paddingTop: 8 }}>
-                <TouchableOpacity onPress={confirmDate} style={{ backgroundColor: "#fff", borderRadius: 10, paddingVertical: 12, alignItems: "center" }}>
-                  <ThemedText style={{ color: "#151718", fontSize: 16, fontWeight: "700" }}>Confirm</ThemedText>
+                <TouchableOpacity
+                  onPress={confirmDate}
+                  style={{
+                    backgroundColor: "#fff",
+                    borderRadius: 10,
+                    paddingVertical: 12,
+                    alignItems: "center",
+                  }}
+                >
+                  <ThemedText
+                    style={{
+                      color: "#151718",
+                      fontSize: 16,
+                      fontWeight: "700",
+                    }}
+                  >
+                    Confirm
+                  </ThemedText>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -621,9 +849,16 @@ export default function EditProfileScreen() {
       </Modal>
       {showNationalityList ? (
         <View style={styles.dropdownOverlay}>
-          <View style={[styles.dropdownCard, { marginBottom: keyboardHeight, maxHeight: dropdownMaxHeight }]}>
+          <View
+            style={[
+              styles.dropdownCard,
+              { marginBottom: keyboardHeight, maxHeight: dropdownMaxHeight },
+            ]}
+          >
             <View style={styles.dropdownHeaderRow}>
-              <ThemedText style={styles.dropdownTitle}>Select nationality</ThemedText>
+              <ThemedText style={styles.dropdownTitle}>
+                Select nationality
+              </ThemedText>
               <TouchableOpacity onPress={() => setShowNationalityList(false)}>
                 <Ionicons name="close" size={20} color="#fff" />
               </TouchableOpacity>
@@ -635,23 +870,34 @@ export default function EditProfileScreen() {
               onChangeText={setNationalitySearch}
               style={styles.dropdownSearch}
             />
-            <ScrollView style={{ maxHeight: listMaxHeight }} showsVerticalScrollIndicator={false}>
-              {(countries || []).filter((c) => c.name.toLowerCase().includes(nationalitySearch.toLowerCase())).map((c) => (
-                <TouchableOpacity
-                  key={c.name + c.code}
-                  style={styles.dropdownItemRow}
-                  onPress={() => {
-                    setNationality(c.name);
-                    setShowNationalityList(false);
-                    setNationalitySearch("");
-                  }}
-                >
-                  <ThemedText style={styles.dropdownFlag}>{c.flag}</ThemedText>
-                  <View style={{ flex: 1 }}>
-                    <ThemedText style={styles.dropdownCountry}>{c.name}</ThemedText>
-                  </View>
-                </TouchableOpacity>
-              ))}
+            <ScrollView
+              style={{ maxHeight: listMaxHeight }}
+              showsVerticalScrollIndicator={false}
+            >
+              {(countries || [])
+                .filter((c) =>
+                  c.name.toLowerCase().includes(nationalitySearch.toLowerCase())
+                )
+                .map((c) => (
+                  <TouchableOpacity
+                    key={c.name + c.code}
+                    style={styles.dropdownItemRow}
+                    onPress={() => {
+                      setNationality(c.name);
+                      setShowNationalityList(false);
+                      setNationalitySearch("");
+                    }}
+                  >
+                    <ThemedText style={styles.dropdownFlag}>
+                      {c.flag}
+                    </ThemedText>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={styles.dropdownCountry}>
+                        {c.name}
+                      </ThemedText>
+                    </View>
+                  </TouchableOpacity>
+                ))}
             </ScrollView>
           </View>
         </View>
@@ -661,19 +907,54 @@ export default function EditProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#151718", paddingHorizontal: 16 },
+  container: { flex: 1, backgroundColor: "#151718" },
   title: { color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 16 },
   form: { gap: 8 },
-  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
-  headerSide: { width: 64 },
-  backButton: { paddingVertical: 8, paddingRight: 12 },
-  headerTitle: { color: "#fff", fontSize: 16, fontWeight: "700", textAlign: "center" },
-  label: { color: "#9BA1A6", fontSize: 12, marginTop: 8 },
+  sectionCard: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(230,232,235,0.14)",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 16,
+  },
+  headerSide: { width: 44 },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  label: { color: "#9BA1A6", fontSize: 12, marginTop: 8, marginBottom: 6 },
+  labelTight: { marginBottom: 6 },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    height: 48,
     color: "#fff",
     borderWidth: 1,
     borderColor: "rgba(230,232,235,0.14)",
@@ -720,8 +1001,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   dropdownTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  sectionLabel: { color: "#9BA1A6", fontSize: 12, marginTop: 8, marginBottom: 4 },
-  statusGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 },
+  sectionLabel: {
+    color: "#9BA1A6",
+    fontSize: 12,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statusGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 4,
+  },
   statusButton: {
     backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
@@ -735,8 +1026,17 @@ const styles = StyleSheet.create({
   statusButtonActive: { backgroundColor: "#fff", borderColor: "#fff" },
   statusText: { color: "#C8CDD2", fontSize: 14, fontWeight: "600" },
   statusTextActive: { color: "#151718" },
-  inlineLabelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  versionRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 },
+  inlineLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  versionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 6,
+  },
   versionBtn: {
     width: 36,
     height: 36,
@@ -748,7 +1048,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(230,232,235,0.14)",
   },
   versionBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
-  versionValue: { color: "#fff", fontSize: 16, fontWeight: "700", minWidth: 20, textAlign: "center" },
+  versionValue: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    minWidth: 20,
+    textAlign: "center",
+  },
   dropdownSearch: {
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 10,
@@ -782,7 +1088,22 @@ const styles = StyleSheet.create({
     right: 20,
     bottom: 20,
   },
+  footerBar: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 16,
+  },
+  primaryBtnFull: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  primaryBtnFullText: {
+    color: "#151718",
+    fontSize: 16,
+    fontWeight: "800",
+  },
   buttonText: { color: "#151718", fontSize: 16, fontWeight: "700" },
 });
-
-

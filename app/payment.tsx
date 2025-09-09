@@ -498,8 +498,8 @@ export default function PaymentScreen() {
   };
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top + 8 }]}>
-      <View style={[styles.headerRow, { marginBottom: 10 }]}>
+    <ThemedView style={styles.container}>
+      <View style={styles.headerRow}>
         <View style={styles.headerSide}>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -509,7 +509,9 @@ export default function PaymentScreen() {
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
-        <ThemedText style={styles.headerTitle}>Payment Methods</ThemedText>
+        <ThemedText style={styles.headerTitle} numberOfLines={1}>
+          Payment Methods
+        </ThemedText>
         <View style={styles.headerSide} />
       </View>
 
@@ -677,24 +679,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#151718",
-    paddingHorizontal: 16,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 4,
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 16,
   },
-  headerSide: {
-    width: 64,
-  },
+  headerSide: { width: 44 },
   backButton: {
-    paddingVertical: 8,
-    paddingRight: 12,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "700",
     textAlign: "center",
   },

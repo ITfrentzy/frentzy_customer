@@ -64,12 +64,7 @@ export default function AccountScreen() {
                 onPress={() => router.push("/profile/edit")}
               />
               <View style={styles.divider} />
-              <ActionItem
-                icon="password"
-                label="Change password"
-                onPress={() => router.push("/change-password")}
-              />
-              <View style={styles.divider} />
+              {/* Change password removed */}
               <ActionItem
                 icon="credit-card"
                 label="Payment methods"
@@ -108,7 +103,12 @@ export default function AccountScreen() {
               <ActionItem
                 icon="login"
                 label="Log in"
-                onPress={() => router.push({ pathname: "/login", params: { from: "account" } })}
+                onPress={() =>
+                  router.push({
+                    pathname: "/login",
+                    params: { from: "account" },
+                  })
+                }
               />
             )}
           </View>

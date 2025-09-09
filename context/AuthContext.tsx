@@ -1,6 +1,12 @@
 import { supabase } from "@/lib/supabase";
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { Alert } from "react-native";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+// Alerts removed to keep auth UX silent; use return values and UI indicators instead
 
 type AuthUser = {
   id: string;
@@ -23,14 +29,16 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(false);
   const [justLoggedIn, setJustLoggedIn] = useState(false);
 
   const requestOtp = async (phone: string) => {
     if (!phone) {
-      Alert.alert("Missing phone", "Please enter your phone number.");
+      console.warn("[Auth] Missing phone number for OTP request");
       return;
     }
     try {
@@ -41,9 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: { channel: "sms", shouldCreateUser: true },
       });
       if (error) {
-        Alert.alert("OTP error", error.message);
-      } else {
-        Alert.alert("Code sent", "We sent a verification code via SMS.");
+        console.warn("[Auth] OTP error", error.message);
       }
     } finally {
       setLoading(false);
@@ -52,16 +58,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const verifyOtp = async (phone: string, token: string) => {
     if (!phone || !token) {
-      Alert.alert("Missing info", "Enter your phone and the verification code.");
+      console.warn("[Auth] Missing phone or token for verification");
       return false;
     }
     try {
       setLoading(true);
       console.log("[Auth] Verifying OTP for:", phone, "code:", token);
-      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({ phone, token, type: "sms" });
+      const { data: verifyData, error: verifyError } =
+        await supabase.auth.verifyOtp({ phone, token, type: "sms" });
       const verifiedUser = (verifyData as any)?.user;
       if (verifyError || !verifiedUser) {
-        Alert.alert("Verification failed", verifyError?.message || "Invalid code");
+        console.warn(
+          "[Auth] Verification failed",
+          verifyError?.message || "Invalid code"
+        );
         return false;
       }
       // Try link to customer by auth user id first
@@ -74,7 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn("Customer lookup by id error:", byIdError.message);
       }
 
-      let effectiveCustomer: any = customerById && (customerById as any)?.id ? customerById : null;
+      let effectiveCustomer: any =
+        customerById && (customerById as any)?.id ? customerById : null;
 
       // Fallback: lookup by phone or email if not found by id
       if (!effectiveCustomer) {
@@ -82,13 +93,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const email = (verifiedUser as any)?.email as string | undefined;
         if (email && email.trim().length > 0) filters.push(`email.eq.${email}`);
         const orFilter = filters.join(",");
-        const { data: customerByContact, error: byContactError } = await supabase
-          .from("customer")
-          .select("id, UID, full_name, email, phone")
-          .or(orFilter)
-          .maybeSingle();
+        const { data: customerByContact, error: byContactError } =
+          await supabase
+            .from("customer")
+            .select("id, UID, full_name, email, phone")
+            .or(orFilter)
+            .maybeSingle();
         if (byContactError) {
-          console.warn("Customer lookup by contact error:", byContactError.message);
+          console.warn(
+            "Customer lookup by contact error:",
+            byContactError.message
+          );
         }
         if (customerByContact && (customerByContact as any)?.id) {
           effectiveCustomer = customerByContact;
@@ -103,10 +118,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .upsert(
             [
               {
-          
                 UID: (verifiedUser as any)?.id,
-       
-                full_name: (verifiedUser as any)?.user_metadata?.full_name ?? null,
+
+                full_name:
+                  (verifiedUser as any)?.user_metadata?.full_name ?? null,
                 email: (verifiedUser as any)?.email ?? null,
                 phone: phone,
                 phone_verified: true,
@@ -133,7 +148,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (
         effectiveCustomer &&
         (effectiveCustomer as any)?.UID &&
-        ((effectiveCustomer as any)?.UID == null || (effectiveCustomer as any)?.UID !== (verifiedUser as any)?.id)
+        ((effectiveCustomer as any)?.UID == null ||
+          (effectiveCustomer as any)?.UID !== (verifiedUser as any)?.id)
       ) {
         const { error: uidUpdateError } = await supabase
           .from("customer")
@@ -146,9 +162,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setUser({
         id: effectiveCustomer.id,
-        full_name: effectiveCustomer.full_name ?? (verifiedUser as any)?.user_metadata?.full_name ?? null,
+        full_name:
+          effectiveCustomer.full_name ??
+          (verifiedUser as any)?.user_metadata?.full_name ??
+          null,
         email: effectiveCustomer.email ?? (verifiedUser as any)?.email ?? null,
-        phone: effectiveCustomer.phone ?? (verifiedUser as any)?.phone ?? phone ?? null,
+        phone:
+          effectiveCustomer.phone ??
+          (verifiedUser as any)?.phone ??
+          phone ??
+          null,
         UID: effectiveCustomer.UID ?? (verifiedUser as any)?.id ?? null,
       });
       setJustLoggedIn(true);
@@ -170,7 +193,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
       setUser({
         id: (customer as any)?.id || sessionUser.id,
-        full_name: (customer as any)?.full_name || sessionUser.user_metadata?.full_name || null,
+        full_name:
+          (customer as any)?.full_name ||
+          sessionUser.user_metadata?.full_name ||
+          null,
         email: (customer as any)?.email || sessionUser.email || null,
         phone: (customer as any)?.phone || (sessionUser as any)?.phone || null,
         UID: (customer as any)?.UID || sessionUser.id || null,
@@ -190,7 +216,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const ackJustLoggedIn = () => setJustLoggedIn(false);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, requestOtp, verifyOtp, signOut, justLoggedIn, ackJustLoggedIn, reloadUser }),
+    () => ({
+      user,
+      loading,
+      requestOtp,
+      verifyOtp,
+      signOut,
+      justLoggedIn,
+      ackJustLoggedIn,
+      reloadUser,
+    }),
     [user, loading, justLoggedIn]
   );
 
@@ -209,31 +244,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
         setUser({
           id: (customer as any)?.id || sessionUser.id,
-          full_name: (customer as any)?.full_name || sessionUser.user_metadata?.full_name || null,
+          full_name:
+            (customer as any)?.full_name ||
+            sessionUser.user_metadata?.full_name ||
+            null,
           email: (customer as any)?.email || sessionUser.email || null,
-          phone: (customer as any)?.phone || (sessionUser as any)?.phone || null,
+          phone:
+            (customer as any)?.phone || (sessionUser as any)?.phone || null,
         });
       }
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const sessionUser = session?.user;
-      if (sessionUser) {
-        const { data: customer } = await supabase
-          .from("customer")
-          .select("id, UID, full_name, email, phone")
-          .or(`UID.eq.${sessionUser.id}`)
-          .maybeSingle();
-        setUser({
-          id: (customer as any)?.id || sessionUser.id,
-          full_name: (customer as any)?.full_name || sessionUser.user_metadata?.full_name || null,
-          email: (customer as any)?.email || sessionUser.email || null,
-          phone: (customer as any)?.phone || (sessionUser as any)?.phone || null,
-          UID: (customer as any)?.UID || sessionUser.id || null,
-        });
-      } else {
-        setUser(null);
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        const sessionUser = session?.user;
+        if (sessionUser) {
+          const { data: customer } = await supabase
+            .from("customer")
+            .select("id, UID, full_name, email, phone")
+            .or(`UID.eq.${sessionUser.id}`)
+            .maybeSingle();
+          setUser({
+            id: (customer as any)?.id || sessionUser.id,
+            full_name:
+              (customer as any)?.full_name ||
+              sessionUser.user_metadata?.full_name ||
+              null,
+            email: (customer as any)?.email || sessionUser.email || null,
+            phone:
+              (customer as any)?.phone || (sessionUser as any)?.phone || null,
+            UID: (customer as any)?.UID || sessionUser.id || null,
+          });
+        } else {
+          setUser(null);
+        }
       }
-    });
+    );
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
@@ -248,5 +293,3 @@ export const useAuth = () => {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 };
-
-
