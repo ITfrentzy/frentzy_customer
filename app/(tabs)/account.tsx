@@ -49,7 +49,7 @@ export default function AccountScreen() {
               {user?.full_name || "Guest"}
             </ThemedText>
             <ThemedText style={styles.emailText} numberOfLines={1}>
-              {user?.email || "Not signed in"}
+              {user?.phone || "Not signed in"}
             </ThemedText>
           </View>
         </View>

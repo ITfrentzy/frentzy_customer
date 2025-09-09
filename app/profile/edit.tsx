@@ -279,10 +279,18 @@ export default function EditProfileScreen() {
     }
     setSaving(true);
     const combinedPhone = `${phoneCode || ""}${phone || ""}`;
-    await supabase
+    const { error } = await supabase
       .from("customer")
       .update({ full_name: fullName, email, phone: combinedPhone })
-      .eq("id", user.id);
+      .eq("UID", (user as any)?.UID || user.id);
+    if (error) {
+      console.warn("Profile save error:", error.message);
+    }
+    try {
+      // Refresh auth context so Account screen gets latest name
+      const { reloadUser } = (await import("@/context/AuthContext")) as any;
+      if (typeof reloadUser === "function") await reloadUser();
+    } catch {}
     setSaving(false);
     router.back();
   };
@@ -483,32 +491,7 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          <ThemedText style={styles.label}>Phone</ThemedText>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={{ flex: 0.5 }}>
-              <TouchableOpacity
-                style={[styles.input, styles.codeSelector]}
-                onPress={() => setShowCodeList((v) => !v)}
-                activeOpacity={0.7}
-              >
-                <ThemedText style={styles.codeText}>{phoneFlag} {phoneCode}</ThemedText>
-                <Ionicons name={showCodeList ? "chevron-up" : "chevron-down"} size={16} color="#9BA1A6" />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              value={phone}
-              onChangeText={(t) => {
-                const digits = t.replace(/\D/g, "");
-                const trimmed = numbering.nationalPrefix ? digits.replace(new RegExp(`^${numbering.nationalPrefix}`), "") : digits;
-                setPhone(trimmed.slice(0, phoneMax));
-              }}
-              keyboardType="phone-pad"
-              placeholder={phoneHint}
-              placeholderTextColor="#9BA1A6"
-              maxLength={phoneMax}
-              style={[styles.input, { flex: 1 } ]}
-            />
-          </View>
+        
           <TouchableOpacity style={[styles.button, { marginTop: 16, marginBottom: 8 }]} onPress={onSave} disabled={saving}>
             {saving ? (
               <ActivityIndicator color="#151718" />

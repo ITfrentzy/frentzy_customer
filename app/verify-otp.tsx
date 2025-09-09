@@ -58,7 +58,7 @@ export default function VerifyOtpScreen() {
         {loading ? <ActivityIndicator color="#151718" /> : <ThemedText style={styles.buttonText}>Verify & continue</ThemedText>}
       </TouchableOpacity>
       <TouchableOpacity
-        onPress={() => router.replace({ pathname: "/login", params: { ...(params as any), phone } as any })}
+        onPress={() => router.replace({ pathname: "/login", params: { ...(params as any), phone: "", clear: "1" } as any })}
         accessibilityRole="button"
         accessibilityLabel="Change phone number"
         style={{ marginTop: 12, alignItems: "center" }}
