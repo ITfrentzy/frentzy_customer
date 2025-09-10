@@ -91,17 +91,58 @@ export default function EditProfileScreen() {
   const [tempDate, setTempDate] = useState<string>(toDateString(new Date()));
   const [iosTempDate, setIosTempDate] = useState<Date>(new Date());
   const [showAndroidNativePicker, setShowAndroidNativePicker] = useState(false);
+  const [pickerKey, setPickerKey] = useState(0);
 
   const openDatePicker = (target: "id" | "dl" | "dob", initial: string) => {
     Keyboard.dismiss();
     setDatePickerTarget(target);
-    setTempDate(initial || toDateString(new Date()));
-    setIosTempDate(initial ? new Date(initial) : new Date());
+    const parseYmd = (s?: string) => {
+      if (!s) return null;
+      const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(String(s));
+      if (!m) return null;
+      const y = Number(m[1]);
+      const mo = Number(m[2]);
+      const d = Number(m[3]);
+      if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d))
+        return null;
+      const dt = new Date(y, mo - 1, d);
+      return Number.isNaN(dt.getTime()) ? null : dt;
+    };
+    const today = new Date();
+    const minDob = new Date(1900, 0, 1);
+    const parsed = parseYmd(initial) || today;
+
+    const base =
+      target === "dob"
+        ? (() => {
+            const initialDob = parseYmd(initial) || today;
+            return initialDob > today
+              ? today
+              : initialDob < minDob
+              ? minDob
+              : initialDob;
+          })()
+        : parsed.getTime() < today.getTime()
+        ? today
+        : parsed;
+
+    // Normalize to midnight to avoid TZ drift in some iOS versions
+    const normalized = new Date(
+      base.getFullYear(),
+      base.getMonth(),
+      base.getDate()
+    );
+
+    setTempDate(toDateString(normalized));
+    setIosTempDate(normalized);
+    setPickerKey((k) => k + 1);
+
     if (Platform.OS === "android") {
       setShowAndroidNativePicker(true);
       return;
     }
-    setDatePickerOpen(true);
+    // Defer opening until next tick so state is applied before the picker renders
+    setTimeout(() => setDatePickerOpen(true), 0);
   };
   const onSelectDate = (day: DateData) => {
     setTempDate(day.dateString);
@@ -230,22 +271,64 @@ export default function EditProfileScreen() {
         setLoading(false);
         return;
       }
-      const { data } = await supabase
+      // Load base customer
+      const { data: cust } = await supabase
         .from("customer")
         .select("full_name, email, phone")
         .eq("id", user.id)
         .maybeSingle();
-      if (data) {
-        setFullName((data as any).full_name || "");
-        setEmail((data as any).email || "");
-        const rawPhone = (data as any).phone || "";
+      if (cust) {
+        setFullName((cust as any).full_name || "");
+        setEmail((cust as any).email || "");
+        const rawPhone = (cust as any).phone || "";
         const match = String(rawPhone).match(/^(\+\d{1,4})\s*(.*)$/);
         if (match) {
           setPhoneCode(match[1]);
           setPhone(match[2]);
-        } else {
+        } else if (rawPhone) {
           setPhone(String(rawPhone));
         }
+      }
+
+      // Load extended customer_info and prefill form if available
+      const { data: info } = await supabase
+        .from("customer_info")
+        .select(
+          "renter_type, national_id, id_expiry_date, license_expiry_date, license_number, date_of_birth, nationality, phone_number, version, border_nnumber"
+        )
+        .eq("customer_id", user.id)
+        .maybeSingle();
+      if (info) {
+        const i: any = info;
+        const rt = String(i.renter_type || "").toLowerCase();
+        if (
+          rt === "citizen" ||
+          rt === "resident" ||
+          rt === "gulf" ||
+          rt === "visitor"
+        ) {
+          setStatus(rt as any);
+        }
+        setIdNumber(i.national_id || "");
+        setIdExpiry(i.id_expiry_date || "");
+        setDlExpiry(i.license_expiry_date || "");
+        setDriverLicenseNo(i.license_number || "");
+        setDob(i.date_of_birth || "");
+        setNationality(i.nationality || "");
+        // Prefer customer table for phone; if missing, fallback to customer_info.phone_number
+        if (!cust?.phone && i.phone_number) {
+          const raw = String(i.phone_number);
+          const m = raw.match(/^(\+\d{1,4})\s*(.*)$/);
+          if (m) {
+            setPhoneCode(m[1]);
+            setPhone(m[2]);
+          } else {
+            setPhone(raw);
+          }
+        }
+        const verNum = Number(i.version);
+        if (Number.isFinite(verNum) && verNum > 0) setIdVersion(verNum);
+        setBorderNumber(i.border_nnumber || "");
       }
       setLoading(false);
     };
@@ -329,12 +412,59 @@ export default function EditProfileScreen() {
     }
     setSaving(true);
     const combinedPhone = `${phoneCode || ""}${phone || ""}`;
-    const { error } = await supabase
+    // Update core customer fields
+    const { error: custErr } = await supabase
       .from("customer")
       .update({ full_name: fullName, email, phone: combinedPhone })
       .eq("UID", (user as any)?.UID || user.id);
-    if (error) {
-      console.warn("Profile save error:", error.message);
+    if (custErr) {
+      console.warn("Profile save error:", custErr.message);
+    }
+
+    // Insert if missing; otherwise update customer_info
+    try {
+      const basePayload: any = {
+        renter_type: status,
+        national_id: idNumber || null,
+        id_expiry_date: idExpiry || null,
+        license_expiry_date: dlExpiry || null,
+        license_number: driverLicenseNo || null,
+        date_of_birth: dob || null,
+        nationality: nationality || null,
+        phone_number: combinedPhone || null,
+        version: status === "resident" ? idVersion : null,
+        border_nnumber: status === "visitor" ? borderNumber : null,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: existingInfo, error: findInfoErr } = await supabase
+        .from("customer_info")
+        .select("id")
+        .eq("customer_id", user.id)
+        .maybeSingle();
+      if (findInfoErr) {
+        console.warn("customer_info find error:", findInfoErr.message);
+      }
+
+      if (existingInfo && (existingInfo as any)?.id) {
+        const { error: updErr } = await supabase
+          .from("customer_info")
+          .update(basePayload)
+          .eq("customer_id", user.id);
+        if (updErr) console.warn("customer_info update error:", updErr.message);
+      } else {
+        const insertPayload = {
+          ...basePayload,
+          customer_id: user.id,
+          created_at: new Date().toISOString(),
+        };
+        const { error: insErr } = await supabase
+          .from("customer_info")
+          .insert([insertPayload]);
+        if (insErr) console.warn("customer_info insert error:", insErr.message);
+      }
+    } catch (e: any) {
+      console.warn("customer_info save exception:", e?.message || String(e));
     }
     try {
       // Refresh auth context so Account screen gets latest name
@@ -733,10 +863,14 @@ export default function EditProfileScreen() {
       {/* Android native spinner picker */}
       {Platform.OS === "android" && showAndroidNativePicker ? (
         <DateTimePicker
+          key={`android-picker-${datePickerTarget}-${tempDate}-${pickerKey}`}
           value={iosTempDate}
           mode="date"
           display="spinner"
-          maximumDate={datePickerTarget === "dob" ? new Date() : undefined}
+          // maximumDate={datePickerTarget === "dob" ? new Date() : undefined}
+          // minimumDate={
+          //   datePickerTarget === "dob" ? new Date(1900, 0, 1) : new Date()
+          // }
           onChange={(event, selectedDate) => {
             if ((event as any)?.type !== "dismissed" && selectedDate) {
               const final = toDateString(selectedDate);
@@ -768,6 +902,7 @@ export default function EditProfileScreen() {
             </View>
             {Platform.OS === "ios" ? (
               <View
+                key={`ios-wrapper-${datePickerTarget}-${tempDate}-${pickerKey}`}
                 style={{
                   backgroundColor: "#1b1e1f",
                   borderRadius: 12,
@@ -776,12 +911,24 @@ export default function EditProfileScreen() {
                 }}
               >
                 <DateTimePicker
+                  key={`ios-picker-${datePickerTarget}-${tempDate}-${pickerKey}`}
                   value={iosTempDate}
                   mode="date"
                   display="spinner"
-                  maximumDate={
-                    datePickerTarget === "dob" ? new Date() : undefined
-                  }
+                  // maximumDate={
+                  //   datePickerTarget === "dob"
+                  //     ? new Date(
+                  //         new Date().getFullYear(),
+                  //         new Date().getMonth(),
+                  //         new Date().getDate()
+                  //       )
+                  //     : undefined
+                  // }
+                  // minimumDate={
+                  //   datePickerTarget === "dob"
+                  //     ? new Date(1900, 0, 1)
+                  //     : new Date()
+                  // }
                   onChange={(e, d) => {
                     if (d) setIosTempDate(d);
                   }}
@@ -790,13 +937,19 @@ export default function EditProfileScreen() {
               </View>
             ) : (
               <Calendar
+                key={`cal-${datePickerTarget}-${tempDate}-${pickerKey}`}
                 style={{ alignSelf: "stretch" }}
                 current={tempDate}
-                maxDate={
-                  datePickerTarget === "dob"
-                    ? toDateString(new Date())
-                    : undefined
-                }
+                // maxDate={
+                //   datePickerTarget === "dob"
+                //     ? toDateString(new Date())
+                //     : undefined
+                // }
+                // minDate={
+                //   datePickerTarget === "dob"
+                //     ? "1900-01-01"
+                //     : toDateString(new Date())
+                // }
                 onDayPress={onSelectDate}
                 markedDates={{
                   [tempDate]: {
