@@ -6,15 +6,39 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Dimensions, Image, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Dimensions,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function VehicleDetailScreen() {
   const router = useRouter();
   const { user, justLoggedIn, ackJustLoggedIn } = useAuth();
-  const { id, name, brand, price, imageUrl, year, type, discount, startDate, endDate, pickupTime, dropoffTime, seats, transmission, distance } = useLocalSearchParams();
+  const {
+    id,
+    name,
+    brand,
+    price,
+    imageUrl,
+    year,
+    type,
+    discount,
+    startDate,
+    endDate,
+    pickupTime,
+    dropoffTime,
+    seats,
+    transmission,
+    distance,
+  } = useLocalSearchParams();
 
   const screenWidth = Dimensions.get("window").width;
-  const sheetMaxHeight = Math.round(Dimensions.get("window").height*0.6);
+  const sheetMaxHeight = Math.round(Dimensions.get("window").height * 0.6);
   const [activeIdx, setActiveIdx] = useState<number>(0);
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
@@ -31,54 +55,75 @@ export default function VehicleDetailScreen() {
         supabase
           .from("customer_info")
           .select(
-            "renter_type, national_id, id_expiry_date, license_expiry_date, license_number, date_of_birth, nationality, phone_number, version, border_nnumber"
+            [
+              "renter_type",
+              "national_id",
+              "national_id_expiry_date",
+              "resident_id",
+              "resident_id_expiry_date",
+              "gulf_national_id",
+              "gulf_national_id_expiry_date",
+              "passport_no",
+              "passport_expiry_date",
+              "license_expiry_date",
+              "license_number",
+              "date_of_birth",
+              "nationality",
+              "phone_number",
+              "version",
+              "border_nnumber",
+            ].join(", ")
           )
           .eq("customer_id", user.id)
           .maybeSingle(),
       ]);
       const missing: string[] = [];
-      const fullName = String((base as any)?.full_name || "").trim();
-      const emailVal = String((base as any)?.email || "").trim();
-      const phoneVal = String((info as any)?.phone_number || (base as any)?.phone || "").trim();
+      const renterType = String((info as any)?.renter_type || "")
+        .trim()
+        .toLowerCase();
+
+      // Common required fields (match Edit screen canSave)
       const nationalityVal = String((info as any)?.nationality || "").trim();
-      const renterType = String((info as any)?.renter_type || "").trim();
-
-      if (!fullName) missing.push("Full name");
-      if (!emailVal) missing.push("Email");
-      if (!nationalityVal) missing.push("Nationality");
-      if (!phoneVal) missing.push("Phone");
-
-      const idNum = String((info as any)?.national_id || "").trim();
-      const idVer = (info as any)?.version;
-      const borderNum = String((info as any)?.border_nnumber || "").trim();
       const dlNo = String((info as any)?.license_number || "").trim();
-      const idExp = String((info as any)?.id_expiry_date || "").trim();
       const dlExp = String((info as any)?.license_expiry_date || "").trim();
       const dob = String((info as any)?.date_of_birth || "").trim();
 
+      if (!nationalityVal) missing.push("Nationality");
+      if (!dlNo) missing.push("Driver license no.");
+      if (!dlExp) missing.push("Driver license expiry date");
+      if (!dob) missing.push("Date of birth");
+
       const statusMissing: string[] = [];
+      const idVer = (info as any)?.version;
       if (renterType === "resident") {
-        if (!idNum) statusMissing.push("Iqama");
-        if (!idVer && idVer !== 0) statusMissing.push("Version");
-        if (!idExp) statusMissing.push("Iqama expiry date");
-        if (!dlExp) statusMissing.push("Driver license expiry date");
-        if (!dlNo) statusMissing.push("Driver license no.");
-        if (!dob) statusMissing.push("Date of birth");
+        const rId = String((info as any)?.resident_id || "").trim();
+        const rExp = String(
+          (info as any)?.resident_id_expiry_date || ""
+        ).trim();
+        if (!rId) statusMissing.push("Resident ID");
+        if (!(typeof idVer === "number" && idVer >= 1))
+          statusMissing.push("Version");
+        if (!rExp) statusMissing.push("Resident ID expiry date");
       } else if (renterType === "citizen") {
-        if (!idNum) statusMissing.push("National ID");
-        if (!idExp) statusMissing.push("National ID expiry date");
-        if (!dlExp) statusMissing.push("Driver license expiry date");
-        if (!dlNo) statusMissing.push("Driver license no.");
-        if (!dob) statusMissing.push("Date of birth");
+        const cId = String((info as any)?.national_id || "").trim();
+        const cExp = String(
+          (info as any)?.national_id_expiry_date || ""
+        ).trim();
+        if (!cId) statusMissing.push("National ID");
+        if (!cExp) statusMissing.push("National ID expiry date");
       } else if (renterType === "gulf") {
-        if (!idNum) statusMissing.push("Gulf National ID");
-        if (!idExp) statusMissing.push("Gulf ID expiry date");
-        if (!dlExp) statusMissing.push("Driver license expiry date");
-        if (!dlNo) statusMissing.push("Driver license no.");
-        if (!dob) statusMissing.push("Date of birth");
+        const gId = String((info as any)?.gulf_national_id || "").trim();
+        const gExp = String(
+          (info as any)?.gulf_national_id_expiry_date || ""
+        ).trim();
+        if (!gId) statusMissing.push("Gulf National ID");
+        if (!gExp) statusMissing.push("Gulf ID expiry date");
       } else if (renterType === "visitor") {
-        if (!borderNum) statusMissing.push("Passport/Border No.");
-        if (!dob) statusMissing.push("Date of birth");
+        const pNum = String((info as any)?.passport_no || "").trim();
+        const pExp = String((info as any)?.passport_expiry_date || "").trim();
+        if (!pNum) statusMissing.push("Passport No.");
+        if (!pExp) statusMissing.push("Passport expiry date");
+        // Border number is optional per Edit screen
       }
 
       if (!renterType) {
@@ -114,16 +159,22 @@ export default function VehicleDetailScreen() {
   }, [price]);
 
   const parsedDiscount = useMemo(() => {
-    const disc = Number(discount ?? (String(type).toLowerCase() === "ev" ? 12 : 0));
+    const disc = Number(
+      discount ?? (String(type).toLowerCase() === "ev" ? 12 : 0)
+    );
     return Number.isFinite(disc) ? disc : 0;
   }, [discount, type]);
 
   const finalPrice = useMemo(() => {
-    return parsedDiscount > 0 ? Math.round(parsedPrice * (1 - parsedDiscount / 100)) : parsedPrice;
+    return parsedDiscount > 0
+      ? Math.round(parsedPrice * (1 - parsedDiscount / 100))
+      : parsedPrice;
   }, [parsedPrice, parsedDiscount]);
 
   const photos = useMemo(() => {
-    const cover = (imageUrl as string) || "https://images.unsplash.com/photo-1550355291-bbee04a92027?w=1200&auto=format&fit=crop&q=60";
+    const cover =
+      (imageUrl as string) ||
+      "https://images.unsplash.com/photo-1550355291-bbee04a92027?w=1200&auto=format&fit=crop&q=60";
     const fallbacks = [
       "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1200&auto=format&fit=crop&q=60",
       "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?w=1200&auto=format&fit=crop&q=60",
@@ -132,9 +183,15 @@ export default function VehicleDetailScreen() {
     return [cover, ...fallbacks];
   }, [imageUrl]);
 
-  const [selectedAdditionals, setSelectedAdditionals] = useState<Record<string, boolean>>({});
-  const [expandedAdditionals, setExpandedAdditionals] = useState<Record<string, boolean>>({});
-  const [overflowAdditionals, setOverflowAdditionals] = useState<Record<string, boolean>>({});
+  const [selectedAdditionals, setSelectedAdditionals] = useState<
+    Record<string, boolean>
+  >({});
+  const [expandedAdditionals, setExpandedAdditionals] = useState<
+    Record<string, boolean>
+  >({});
+  const [overflowAdditionals, setOverflowAdditionals] = useState<
+    Record<string, boolean>
+  >({});
   const additionals = useMemo(
     () => [
       {
@@ -176,34 +233,62 @@ export default function VehicleDetailScreen() {
   );
 
   const extrasPerDay = useMemo(() => {
-    return additionals.reduce((sum, a) => (selectedAdditionals[a.id] ? sum + a.price : sum), 0);
+    return additionals.reduce(
+      (sum, a) => (selectedAdditionals[a.id] ? sum + a.price : sum),
+      0
+    );
   }, [additionals, selectedAdditionals]);
 
   const rentalDays = useMemo(() => {
     const s = startDate ? new Date(String(startDate)) : null;
     const e = endDate ? new Date(String(endDate)) : null;
-    if (!s || !e || Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return 1;
-    const ms = Math.max(1, Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)));
+    if (!s || !e || Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()))
+      return 1;
+    const ms = Math.max(
+      1,
+      Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))
+    );
     return ms;
   }, [startDate, endDate]);
 
-  const perDayTotal = useMemo(() => finalPrice + extrasPerDay, [finalPrice, extrasPerDay]);
-  const grandTotal = useMemo(() => perDayTotal * rentalDays, [perDayTotal, rentalDays]);
-  const originalPerDayTotal = useMemo(() => parsedPrice + extrasPerDay, [parsedPrice, extrasPerDay]);
-  const originalGrandTotal = useMemo(() => originalPerDayTotal * rentalDays, [originalPerDayTotal, rentalDays]);
+  const perDayTotal = useMemo(
+    () => finalPrice + extrasPerDay,
+    [finalPrice, extrasPerDay]
+  );
+  const grandTotal = useMemo(
+    () => perDayTotal * rentalDays,
+    [perDayTotal, rentalDays]
+  );
+  const originalPerDayTotal = useMemo(
+    () => parsedPrice + extrasPerDay,
+    [parsedPrice, extrasPerDay]
+  );
+  const originalGrandTotal = useMemo(
+    () => originalPerDayTotal * rentalDays,
+    [originalPerDayTotal, rentalDays]
+  );
   const savingsTotal = useMemo(() => {
     if (parsedDiscount <= 0) return 0;
     const perDaySavings = Math.max(0, parsedPrice - finalPrice);
     return perDaySavings * rentalDays;
   }, [parsedDiscount, parsedPrice, finalPrice, rentalDays]);
-  const baseSubtotal = useMemo(() => finalPrice * rentalDays, [finalPrice, rentalDays]);
-  const extrasSubtotal = useMemo(() => extrasPerDay * rentalDays, [extrasPerDay, rentalDays]);
+  const baseSubtotal = useMemo(
+    () => finalPrice * rentalDays,
+    [finalPrice, rentalDays]
+  );
+  const extrasSubtotal = useMemo(
+    () => extrasPerDay * rentalDays,
+    [extrasPerDay, rentalDays]
+  );
   const [showPriceSheet, setShowPriceSheet] = useState<boolean>(false);
 
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <ThemedText style={styles.title} numberOfLines={1}>
@@ -219,22 +304,34 @@ export default function VehicleDetailScreen() {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={(e) => {
-              const idx = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+              const idx = Math.round(
+                e.nativeEvent.contentOffset.x / screenWidth
+              );
               setActiveIdx(idx);
             }}
           >
             {photos.map((uri, idx) => (
-              <Image key={idx} source={{ uri }} style={[styles.heroImage, { width: screenWidth }]} resizeMode="cover" />
+              <Image
+                key={idx}
+                source={{ uri }}
+                style={[styles.heroImage, { width: screenWidth }]}
+                resizeMode="cover"
+              />
             ))}
           </ScrollView>
           <View style={styles.dotsRow}>
             {photos.map((_, i) => (
-              <View key={i} style={[styles.dot, i === activeIdx && styles.dotActive]} />
+              <View
+                key={i}
+                style={[styles.dot, i === activeIdx && styles.dotActive]}
+              />
             ))}
           </View>
           {parsedDiscount > 0 && (
             <View style={styles.discountBadge}>
-              <ThemedText style={styles.discountText}>Save {parsedDiscount}%</ThemedText>
+              <ThemedText style={styles.discountText}>
+                Save {parsedDiscount}%
+              </ThemedText>
             </View>
           )}
         </View>
@@ -254,7 +351,9 @@ export default function VehicleDetailScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <ThemedText style={styles.specLabel}>Price</ThemedText>
-                  <ThemedText style={styles.specValue}>${finalPrice} / day</ThemedText>
+                  <ThemedText style={styles.specValue}>
+                    ${finalPrice} / day
+                  </ThemedText>
                 </View>
               </View>
             </View>
@@ -291,8 +390,12 @@ export default function VehicleDetailScreen() {
                     <Ionicons name="settings" size={16} color="#fff" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <ThemedText style={styles.specLabel}>Transmission</ThemedText>
-                    <ThemedText style={styles.specValue}>{transmission}</ThemedText>
+                    <ThemedText style={styles.specLabel}>
+                      Transmission
+                    </ThemedText>
+                    <ThemedText style={styles.specValue}>
+                      {transmission}
+                    </ThemedText>
                   </View>
                 </View>
               </View>
@@ -305,7 +408,9 @@ export default function VehicleDetailScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <ThemedText style={styles.specLabel}>Distance</ThemedText>
-                    <ThemedText style={styles.specValue}>{distance} km away</ThemedText>
+                    <ThemedText style={styles.specValue}>
+                      {distance} km away
+                    </ThemedText>
                   </View>
                 </View>
               </View>
@@ -318,7 +423,9 @@ export default function VehicleDetailScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <ThemedText style={styles.specLabel}>Year</ThemedText>
-                    <ThemedText style={styles.specValue}>{year as string}</ThemedText>
+                    <ThemedText style={styles.specValue}>
+                      {year as string}
+                    </ThemedText>
                   </View>
                 </View>
               </View>
@@ -346,25 +453,46 @@ export default function VehicleDetailScreen() {
                 return (
                   <TouchableOpacity
                     key={a.id}
-                    style={[styles.additionalRow, isOn && styles.additionalRowOn]}
+                    style={[
+                      styles.additionalRow,
+                      isOn && styles.additionalRowOn,
+                    ]}
                     activeOpacity={0.8}
-                    onPress={() => setSelectedAdditionals((prev) => ({ ...prev, [a.id]: !prev[a.id] }))}
+                    onPress={() =>
+                      setSelectedAdditionals((prev) => ({
+                        ...prev,
+                        [a.id]: !prev[a.id],
+                      }))
+                    }
                   >
                     <View style={styles.additionalLeftRow}>
                       <View style={[styles.toggle, isOn && styles.toggleOn]}>
-                        {isOn ? <Ionicons name="checkmark" size={14} color="#151718" /> : null}
+                        {isOn ? (
+                          <Ionicons
+                            name="checkmark"
+                            size={14}
+                            color="#151718"
+                          />
+                        ) : null}
                       </View>
                       <View style={{ flex: 1 }}>
-                      <ThemedText style={styles.additionalLabel}>{a.label}</ThemedText>
+                        <ThemedText style={styles.additionalLabel}>
+                          {a.label}
+                        </ThemedText>
 
                         {/* Hidden measurer to detect overflow */}
                         {a.description ? (
                           <ThemedText
-                            style={[styles.additionalDescription, { position: "absolute", opacity: 0, height: 0, }]}
+                            style={[
+                              styles.additionalDescription,
+                              { position: "absolute", opacity: 0, height: 0 },
+                            ]}
                             onTextLayout={(e) => {
                               const isOverflow = e.nativeEvent.lines.length > 1;
                               setOverflowAdditionals((prev) =>
-                                prev[a.id] === isOverflow ? prev : { ...prev, [a.id]: isOverflow }
+                                prev[a.id] === isOverflow
+                                  ? prev
+                                  : { ...prev, [a.id]: isOverflow }
                               );
                             }}
                           >
@@ -383,13 +511,19 @@ export default function VehicleDetailScreen() {
                       </View>
                     </View>
                     <View style={styles.additionalRightCol}>
-                      <ThemedText style={styles.additionalPrice}>+${a.price} / day</ThemedText>
-                      {a.description && (overflowAdditionals[a.id] || isExpanded) ? (
+                      <ThemedText style={styles.additionalPrice}>
+                        +${a.price} / day
+                      </ThemedText>
+                      {a.description &&
+                      (overflowAdditionals[a.id] || isExpanded) ? (
                         <TouchableOpacity
                           style={styles.arrowButton}
                           activeOpacity={0.7}
                           onPress={() =>
-                            setExpandedAdditionals((prev) => ({ ...prev, [a.id]: !prev[a.id] }))
+                            setExpandedAdditionals((prev) => ({
+                              ...prev,
+                              [a.id]: !prev[a.id],
+                            }))
                           }
                         >
                           <Ionicons
@@ -411,15 +545,24 @@ export default function VehicleDetailScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.totalCol} activeOpacity={0.8} onPress={() => setShowPriceSheet(true)}>
+        <TouchableOpacity
+          style={styles.totalCol}
+          activeOpacity={0.8}
+          onPress={() => setShowPriceSheet(true)}
+        >
           <ThemedText style={styles.totalLabel}>Total</ThemedText>
           <ThemedText style={styles.totalValue}>${grandTotal}</ThemedText>
           <View style={styles.metaBlock}>
             <View style={styles.metaRowSmall}>
               <Ionicons name="pricetag-outline" size={14} color="#9BA1A6" />
-              <ThemedText style={styles.totalMeta}>Base ${finalPrice} / day</ThemedText>
+              <ThemedText style={styles.totalMeta}>
+                Base ${finalPrice} / day
+              </ThemedText>
               {savingsTotal > 0 ? (
-                <ThemedText style={styles.totalStrike}> ${parsedPrice} / day</ThemedText>
+                <ThemedText style={styles.totalStrike}>
+                  {" "}
+                  ${parsedPrice} / day
+                </ThemedText>
               ) : null}
             </View>
             <View style={styles.metaRowSmall}>
@@ -429,8 +572,15 @@ export default function VehicleDetailScreen() {
               </ThemedText>
               {extrasPerDay > 0 ? (
                 <>
-                  <Ionicons name="add-circle-outline" size={14} color="#9BA1A6" />
-                  <ThemedText style={styles.totalMeta}>{Object.values(selectedAdditionals).filter(Boolean).length} Add-ons</ThemedText>
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={14}
+                    color="#9BA1A6"
+                  />
+                  <ThemedText style={styles.totalMeta}>
+                    {Object.values(selectedAdditionals).filter(Boolean).length}{" "}
+                    Add-ons
+                  </ThemedText>
                 </>
               ) : null}
             </View>
@@ -472,7 +622,9 @@ export default function VehicleDetailScreen() {
           }}
         >
           <Ionicons name="card" size={18} color="#151718" />
-          <ThemedText style={styles.payButtonText}>Pay ${grandTotal}</ThemedText>
+          <ThemedText style={styles.payButtonText}>
+            Pay ${grandTotal}
+          </ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -485,27 +637,47 @@ export default function VehicleDetailScreen() {
                 <Ionicons name="close" size={22} color="#fff" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{ maxHeight: sheetMaxHeight - 80 }} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={{ maxHeight: sheetMaxHeight - 80 }}
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.priceCard}>
                 <View style={[styles.priceRow, { marginBottom: 4 }]}>
                   <ThemedText style={styles.priceLabel}>Trip</ThemedText>
                   <View style={{ flex: 1 }} />
                   <ThemedText style={styles.priceValueRow}>
-                    {String(startDate || "")} {pickupTime ? `· ${pickupTime}` : ""} → {String(endDate || "")} {dropoffTime ? `· ${dropoffTime}` : ""}
+                    {String(startDate || "")}{" "}
+                    {pickupTime ? `· ${pickupTime}` : ""} →{" "}
+                    {String(endDate || "")}{" "}
+                    {dropoffTime ? `· ${dropoffTime}` : ""}
                   </ThemedText>
                 </View>
                 <View style={styles.priceDivider} />
                 <View style={styles.addonItemRow}>
                   <View style={styles.addonLeft}>
-                    <ThemedText style={styles.addonLabel}>{String(name || "Car")}</ThemedText>
-                    <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-                      <ThemedText style={styles.addonSubLabel}>${finalPrice} / day × {rentalDays}</ThemedText>
+                    <ThemedText style={styles.addonLabel}>
+                      {String(name || "Car")}
+                    </ThemedText>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "baseline",
+                        gap: 8,
+                      }}
+                    >
+                      <ThemedText style={styles.addonSubLabel}>
+                        ${finalPrice} / day × {rentalDays}
+                      </ThemedText>
                       {savingsTotal > 0 ? (
-                        <ThemedText style={styles.totalStrike}>${parsedPrice} / day</ThemedText>
+                        <ThemedText style={styles.totalStrike}>
+                          ${parsedPrice} / day
+                        </ThemedText>
                       ) : null}
                     </View>
                   </View>
-                  <ThemedText style={styles.addonTotal}>${baseSubtotal}</ThemedText>
+                  <ThemedText style={styles.addonTotal}>
+                    ${baseSubtotal}
+                  </ThemedText>
                 </View>
                 {/* Removed aggregate Add‑ons row; itemized breakdown below */}
                 {extrasPerDay > 0 ? (
@@ -518,12 +690,16 @@ export default function VehicleDetailScreen() {
                         return (
                           <View key={aid} style={styles.addonItemRow}>
                             <View style={styles.addonLeft}>
-                              <ThemedText style={styles.addonLabel}>{item.label}</ThemedText>
+                              <ThemedText style={styles.addonLabel}>
+                                {item.label}
+                              </ThemedText>
                               <ThemedText style={styles.addonSubLabel}>
                                 ${item.price} / day × {rentalDays}
                               </ThemedText>
                             </View>
-                            <ThemedText style={styles.addonTotal}>${item.price * rentalDays}</ThemedText>
+                            <ThemedText style={styles.addonTotal}>
+                              ${item.price * rentalDays}
+                            </ThemedText>
                           </View>
                         );
                       })}
@@ -533,13 +709,19 @@ export default function VehicleDetailScreen() {
                   <View style={styles.priceRow}>
                     <ThemedText style={styles.priceLabel}>Discount</ThemedText>
                     <ThemedText style={styles.priceValueRow}>−</ThemedText>
-                    <ThemedText style={[styles.priceValueRow, styles.negative]}>−${savingsTotal}</ThemedText>
+                    <ThemedText style={[styles.priceValueRow, styles.negative]}>
+                      −${savingsTotal}
+                    </ThemedText>
                   </View>
                 ) : null}
                 <View style={styles.priceRow}>
-                  <ThemedText style={[styles.priceLabel, styles.totalRowLabel]}>Total</ThemedText>
+                  <ThemedText style={[styles.priceLabel, styles.totalRowLabel]}>
+                    Total
+                  </ThemedText>
                   <View style={{ flex: 1 }} />
-                  <ThemedText style={styles.totalRowValue}>${grandTotal}</ThemedText>
+                  <ThemedText style={styles.totalRowValue}>
+                    ${grandTotal}
+                  </ThemedText>
                 </View>
               </View>
             </ScrollView>
@@ -548,10 +730,17 @@ export default function VehicleDetailScreen() {
       )}
 
       {/* Profile completion modal */}
-      <Modal visible={showProfileModal} animationType="fade" transparent onRequestClose={() => setShowProfileModal(false)}>
+      <Modal
+        visible={showProfileModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowProfileModal(false)}
+      >
         <View style={styles.profileModalOverlay}>
           <View style={styles.profileModalCard}>
-            <ThemedText style={styles.profileModalTitle}>Complete your profile</ThemedText>
+            <ThemedText style={styles.profileModalTitle}>
+              Complete your profile
+            </ThemedText>
             <ThemedText style={styles.profileModalText}>
               To proceed with payment, please complete your profile information.
             </ThemedText>
@@ -560,7 +749,9 @@ export default function VehicleDetailScreen() {
                 {missingFields.map((f) => (
                   <View key={f} style={styles.profileMissingItem}>
                     <Ionicons name="alert-circle" size={16} color="#ffcc00" />
-                    <ThemedText style={styles.profileMissingText}>{f} is required</ThemedText>
+                    <ThemedText style={styles.profileMissingText}>
+                      {f} is required
+                    </ThemedText>
                   </View>
                 ))}
               </View>
@@ -574,14 +765,18 @@ export default function VehicleDetailScreen() {
                 }}
                 activeOpacity={0.85}
               >
-                <ThemedText style={styles.profilePrimaryBtnText}>Complete profile</ThemedText>
+                <ThemedText style={styles.profilePrimaryBtnText}>
+                  Complete profile
+                </ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.profileSecondaryBtn}
                 onPress={() => setShowProfileModal(false)}
                 activeOpacity={0.85}
               >
-                <ThemedText style={styles.profileSecondaryBtnText}>Close</ThemedText>
+                <ThemedText style={styles.profileSecondaryBtnText}>
+                  Close
+                </ThemedText>
               </TouchableOpacity>
             </View>
           </View>
@@ -1085,5 +1280,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-
-

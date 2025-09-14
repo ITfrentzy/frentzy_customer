@@ -6,7 +6,7 @@ import { toDateString } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -25,7 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, reloadUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -82,6 +82,36 @@ export default function EditProfileScreen() {
   const [nationality, setNationality] = useState<string>("");
   const [idExpiry, setIdExpiry] = useState("");
   const [dlExpiry, setDlExpiry] = useState("");
+  const [idsByType, setIdsByType] = useState<{
+    citizen: { id: string; expiry: string };
+    resident: { id: string; expiry: string };
+    gulf: { id: string; expiry: string };
+    visitor: { id: string; expiry: string };
+  }>({
+    citizen: { id: "", expiry: "" },
+    resident: { id: "", expiry: "" },
+    gulf: { id: "", expiry: "" },
+    visitor: { id: "", expiry: "" },
+  });
+  const [savedIdsByType, setSavedIdsByType] = useState<{
+    citizen: { id: string; expiry: string };
+    resident: { id: string; expiry: string };
+    gulf: { id: string; expiry: string };
+    visitor: { id: string; expiry: string };
+  }>({
+    citizen: { id: "", expiry: "" },
+    resident: { id: "", expiry: "" },
+    gulf: { id: "", expiry: "" },
+    visitor: { id: "", expiry: "" },
+  });
+  const lastStatusRef = useRef<StatusType>("resident");
+  const hydratedRef = useRef<boolean>(false);
+  const savedCommonRef = useRef<{
+    dlExpiry: string;
+    driverLicenseNo: string;
+    dob: string;
+    nationality: string;
+  }>({ dlExpiry: "", driverLicenseNo: "", dob: "", nationality: "" });
 
   // Single date picker modal
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -91,58 +121,54 @@ export default function EditProfileScreen() {
   const [tempDate, setTempDate] = useState<string>(toDateString(new Date()));
   const [iosTempDate, setIosTempDate] = useState<Date>(new Date());
   const [showAndroidNativePicker, setShowAndroidNativePicker] = useState(false);
-  const [pickerKey, setPickerKey] = useState(0);
+
+  // Validation helpers for active renter type only
+  const isBlank = (s: string) => !s || s.trim().length === 0;
+  const isActiveTypeValid = () => {
+    const nameOk = !isBlank(fullName);
+    const emailOk = !isBlank(email);
+    const baseFilled =
+      nameOk &&
+      emailOk &&
+      !isBlank(idNumber) &&
+      !!idExpiry &&
+      !!dlExpiry &&
+      !isBlank(driverLicenseNo) &&
+      !!dob &&
+      !!nationality;
+    if (!baseFilled) return false;
+    if (status === "resident") {
+      return typeof idVersion === "number" && idVersion >= 1;
+    }
+    return true;
+  };
+
+  const canSave = useMemo(
+    () => isActiveTypeValid(),
+    [
+      status,
+      idNumber,
+      idExpiry,
+      dlExpiry,
+      driverLicenseNo,
+      dob,
+      nationality,
+      idVersion,
+      fullName,
+      email,
+    ]
+  );
 
   const openDatePicker = (target: "id" | "dl" | "dob", initial: string) => {
     Keyboard.dismiss();
     setDatePickerTarget(target);
-    const parseYmd = (s?: string) => {
-      if (!s) return null;
-      const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(String(s));
-      if (!m) return null;
-      const y = Number(m[1]);
-      const mo = Number(m[2]);
-      const d = Number(m[3]);
-      if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d))
-        return null;
-      const dt = new Date(y, mo - 1, d);
-      return Number.isNaN(dt.getTime()) ? null : dt;
-    };
-    const today = new Date();
-    const minDob = new Date(1900, 0, 1);
-    const parsed = parseYmd(initial) || today;
-
-    const base =
-      target === "dob"
-        ? (() => {
-            const initialDob = parseYmd(initial) || today;
-            return initialDob > today
-              ? today
-              : initialDob < minDob
-              ? minDob
-              : initialDob;
-          })()
-        : parsed.getTime() < today.getTime()
-        ? today
-        : parsed;
-
-    // Normalize to midnight to avoid TZ drift in some iOS versions
-    const normalized = new Date(
-      base.getFullYear(),
-      base.getMonth(),
-      base.getDate()
-    );
-
-    setTempDate(toDateString(normalized));
-    setIosTempDate(normalized);
-    setPickerKey((k) => k + 1);
-
+    setTempDate(initial || toDateString(new Date()));
+    setIosTempDate(initial ? new Date(initial) : new Date());
     if (Platform.OS === "android") {
       setShowAndroidNativePicker(true);
       return;
     }
-    // Defer opening until next tick so state is applied before the picker renders
-    setTimeout(() => setDatePickerOpen(true), 0);
+    setDatePickerOpen(true);
   };
   const onSelectDate = (day: DateData) => {
     setTempDate(day.dateString);
@@ -154,6 +180,15 @@ export default function EditProfileScreen() {
     if (datePickerTarget === "dl") setDlExpiry(finalDate);
     if (datePickerTarget === "dob") setDob(finalDate);
     setDatePickerOpen(false);
+    if (datePickerTarget === "id") {
+      setIdsByType(
+        (prev) =>
+          ({
+            ...prev,
+            [status]: { ...(prev as any)[status], expiry: finalDate },
+          } as any)
+      );
+    }
   };
 
   // Per-country national prefix and local number length (from ITU E.164 overview via IBAN table)
@@ -220,7 +255,7 @@ export default function EditProfileScreen() {
       case "citizen":
         return "National ID";
       case "resident":
-        return "Iqama";
+        return "Resident ID";
       case "gulf":
         return "Gulf National Id";
       case "visitor":
@@ -235,7 +270,7 @@ export default function EditProfileScreen() {
       case "citizen":
         return "National ID Expiry Date";
       case "resident":
-        return "Iqama expiry date";
+        return "Resident ID expiry date";
       case "gulf":
         return "Gulf Id Expiry Date";
       case "visitor":
@@ -271,30 +306,46 @@ export default function EditProfileScreen() {
         setLoading(false);
         return;
       }
-      // Load base customer
-      const { data: cust } = await supabase
+      const { data } = await supabase
         .from("customer")
         .select("full_name, email, phone")
         .eq("id", user.id)
         .maybeSingle();
-      if (cust) {
-        setFullName((cust as any).full_name || "");
-        setEmail((cust as any).email || "");
-        const rawPhone = (cust as any).phone || "";
+      if (data) {
+        setFullName((data as any).full_name || "");
+        setEmail((data as any).email || "");
+        const rawPhone = (data as any).phone || "";
         const match = String(rawPhone).match(/^(\+\d{1,4})\s*(.*)$/);
         if (match) {
           setPhoneCode(match[1]);
           setPhone(match[2]);
-        } else if (rawPhone) {
+        } else {
           setPhone(String(rawPhone));
         }
       }
 
-      // Load extended customer_info and prefill form if available
+      // Load extended customer_info and prefill when available
       const { data: info } = await supabase
         .from("customer_info")
         .select(
-          "renter_type, national_id, id_expiry_date, license_expiry_date, license_number, date_of_birth, nationality, phone_number, version, border_nnumber"
+          [
+            "renter_type",
+            "national_id",
+            "national_id_expiry_date",
+            "resident_id",
+            "resident_id_expiry_date",
+            "gulf_national_id",
+            "gulf_national_id_expiry_date",
+            "passport_no",
+            "passport_expiry_date",
+            "license_expiry_date",
+            "license_number",
+            "date_of_birth",
+            "nationality",
+            "phone_number",
+            "version",
+            "border_nnumber",
+          ].join(", ")
         )
         .eq("customer_id", user.id)
         .maybeSingle();
@@ -309,14 +360,42 @@ export default function EditProfileScreen() {
         ) {
           setStatus(rt as any);
         }
-        setIdNumber(i.national_id || "");
-        setIdExpiry(i.id_expiry_date || "");
+        const nextIds = {
+          citizen: {
+            id: i.national_id || "",
+            expiry: i.national_id_expiry_date || "",
+          },
+          resident: {
+            id: i.resident_id || "",
+            expiry: i.resident_id_expiry_date || "",
+          },
+          gulf: {
+            id: i.gulf_national_id || "",
+            expiry: i.gulf_national_id_expiry_date || "",
+          },
+          visitor: {
+            id: i.passport_no || "",
+            expiry: i.passport_expiry_date || "",
+          },
+        } as any;
+        setSavedIdsByType(nextIds);
+        setIdsByType(nextIds);
+        const effective = (nextIds as any)[rt] || nextIds.citizen;
+        setIdNumber(effective.id || "");
+        setIdExpiry(effective.expiry || "");
         setDlExpiry(i.license_expiry_date || "");
         setDriverLicenseNo(i.license_number || "");
         setDob(i.date_of_birth || "");
         setNationality(i.nationality || "");
-        // Prefer customer table for phone; if missing, fallback to customer_info.phone_number
-        if (!cust?.phone && i.phone_number) {
+        // Snapshot saved common fields to decide reset behavior on type change
+        savedCommonRef.current = {
+          dlExpiry: i.license_expiry_date || "",
+          driverLicenseNo: i.license_number || "",
+          dob: i.date_of_birth || "",
+          nationality: i.nationality || "",
+        };
+        // Fallback phone if customer.phone was empty
+        if (!(data as any)?.phone && i.phone_number) {
           const raw = String(i.phone_number);
           const m = raw.match(/^(\+\d{1,4})\s*(.*)$/);
           if (m) {
@@ -330,10 +409,62 @@ export default function EditProfileScreen() {
         if (Number.isFinite(verNum) && verNum > 0) setIdVersion(verNum);
         setBorderNumber(i.border_nnumber || "");
       }
+      hydratedRef.current = true;
       setLoading(false);
     };
     load();
   }, [user]);
+
+  // On renter type change: clear unsaved data if switching away from a type with edits; otherwise show saved values
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const prevType = lastStatusRef.current;
+    const prevSaved = (savedIdsByType as any)[prevType] as
+      | { id: string; expiry: string }
+      | undefined;
+    const prevWork = (idsByType as any)[prevType] as
+      | { id: string; expiry: string }
+      | undefined;
+    const prevSavedId = prevSaved?.id || "";
+    const prevSavedExp = prevSaved?.expiry || "";
+    const prevWorkId = prevWork?.id || "";
+    const prevWorkExp = prevWork?.expiry || "";
+    const prevHasUnsaved =
+      prevWorkId !== prevSavedId || prevWorkExp !== prevSavedExp;
+
+    if (prevHasUnsaved) {
+      // Clear working state for new type-specific fields
+      setIdNumber("");
+      setIdExpiry("");
+      setIdsByType(
+        (p) => ({ ...(p as any), [status]: { id: "", expiry: "" } } as any)
+      );
+      // Reset common fields only if they differ from the last saved snapshot
+      const c = savedCommonRef.current;
+      if (dlExpiry !== c.dlExpiry) setDlExpiry("");
+      if ((driverLicenseNo || "") !== c.driverLicenseNo) setDriverLicenseNo("");
+      if (dob !== c.dob) setDob("");
+      if (nationality !== c.nationality) setNationality("");
+    } else {
+      // Show saved values for the newly selected type (if any)
+      const newSaved = (savedIdsByType as any)[status] as
+        | { id: string; expiry: string }
+        | undefined;
+      setIdNumber(newSaved?.id || "");
+      setIdExpiry(newSaved?.expiry || "");
+      setIdsByType(
+        (p) =>
+          ({
+            ...(p as any),
+            [status]: {
+              id: newSaved?.id || "",
+              expiry: newSaved?.expiry || "",
+            },
+          } as any)
+      );
+    }
+    lastStatusRef.current = status;
+  }, [status]);
 
   useEffect(() => {
     const loadCodes = async () => {
@@ -410,31 +541,50 @@ export default function EditProfileScreen() {
       router.push("/login");
       return;
     }
+    // Prevent save if required identity fields for current renter type are missing
+    if (!canSave) return;
     setSaving(true);
     const combinedPhone = `${phoneCode || ""}${phone || ""}`;
     // Update core customer fields
     const { error: custErr } = await supabase
       .from("customer")
       .update({ full_name: fullName, email, phone: combinedPhone })
-      .eq("UID", (user as any)?.UID || user.id);
+      .eq("id", user.id);
     if (custErr) {
       console.warn("Profile save error:", custErr.message);
     }
 
     // Insert if missing; otherwise update customer_info
     try {
-      const basePayload: any = {
+      const ts = new Date().toISOString();
+
+      // Build type-specific pair only for the active renter type
+      const currentTypePair: any = {};
+      if (status === "citizen") {
+        currentTypePair.national_id = idNumber || null;
+        currentTypePair.national_id_expiry_date = idExpiry || null;
+      } else if (status === "resident") {
+        currentTypePair.resident_id = idNumber || null;
+        currentTypePair.resident_id_expiry_date = idExpiry || null;
+        currentTypePair.version = idVersion || null;
+      } else if (status === "gulf") {
+        currentTypePair.gulf_national_id = idNumber || null;
+        currentTypePair.gulf_national_id_expiry_date = idExpiry || null;
+      } else if (status === "visitor") {
+        currentTypePair.passport_no = idNumber || null;
+        currentTypePair.passport_expiry_date = idExpiry || null;
+        currentTypePair.border_nnumber = borderNumber || null;
+      }
+
+      // Shared fields to always update
+      const shared: any = {
         renter_type: status,
-        national_id: idNumber || null,
-        id_expiry_date: idExpiry || null,
         license_expiry_date: dlExpiry || null,
         license_number: driverLicenseNo || null,
         date_of_birth: dob || null,
         nationality: nationality || null,
         phone_number: combinedPhone || null,
-        version: status === "resident" ? idVersion : null,
-        border_nnumber: status === "visitor" ? borderNumber : null,
-        updated_at: new Date().toISOString(),
+        updated_at: ts,
       };
 
       const { data: existingInfo, error: findInfoErr } = await supabase
@@ -447,29 +597,59 @@ export default function EditProfileScreen() {
       }
 
       if (existingInfo && (existingInfo as any)?.id) {
+        // Update only current type-specific pair + shared fields to preserve other types
+        const updatePayload = { ...shared, ...currentTypePair };
         const { error: updErr } = await supabase
           .from("customer_info")
-          .update(basePayload)
+          .update(updatePayload)
           .eq("customer_id", user.id);
-        if (updErr) console.warn("customer_info update error:", updErr.message);
+        if (updErr) {
+          console.warn("customer_info update error:", updErr.message);
+        }
       } else {
+        // Insert new row with current type-specific pair + shared fields
         const insertPayload = {
-          ...basePayload,
+          ...shared,
+          ...currentTypePair,
           customer_id: user.id,
-          created_at: new Date().toISOString(),
+          created_at: ts,
         };
         const { error: insErr } = await supabase
           .from("customer_info")
           .insert([insertPayload]);
-        if (insErr) console.warn("customer_info insert error:", insErr.message);
+        if (insErr) {
+          console.warn("customer_info insert error:", insErr.message);
+        }
       }
+
+      // Update saved snapshots for current type so switching types retains saved values
+      setSavedIdsByType(
+        (prev) =>
+          ({
+            ...(prev as any),
+            [status]: { id: idNumber || "", expiry: idExpiry || "" },
+          } as any)
+      );
+      setIdsByType(
+        (prev) =>
+          ({
+            ...(prev as any),
+            [status]: { id: idNumber || "", expiry: idExpiry || "" },
+          } as any)
+      );
+      // Refresh saved common snapshot to current saved values after successful save
+      savedCommonRef.current = {
+        dlExpiry: dlExpiry || "",
+        driverLicenseNo: driverLicenseNo || "",
+        dob: dob || "",
+        nationality: nationality || "",
+      };
     } catch (e: any) {
       console.warn("customer_info save exception:", e?.message || String(e));
     }
+    // Refresh auth context so Account screen gets latest name
     try {
-      // Refresh auth context so Account screen gets latest name
-      const { reloadUser } = (await import("@/context/AuthContext")) as any;
-      if (typeof reloadUser === "function") await reloadUser();
+      await reloadUser();
     } catch {}
     setSaving(false);
     router.back();
@@ -547,7 +727,12 @@ export default function EditProfileScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <ThemedText style={styles.label}>Full name</ThemedText>
+              <ThemedText style={styles.label}>
+                Full name{" "}
+                {!(fullName || "").trim() ? (
+                  <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                ) : null}
+              </ThemedText>
               <TextInput
                 value={fullName}
                 onChangeText={setFullName}
@@ -557,7 +742,12 @@ export default function EditProfileScreen() {
                 onFocus={() => scrollToField("fullName")}
                 onLayout={registerField("fullName")}
               />
-              <ThemedText style={styles.label}>Email</ThemedText>
+              <ThemedText style={styles.label}>
+                Email{" "}
+                {!(email || "").trim() ? (
+                  <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                ) : null}
+              </ThemedText>
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -580,7 +770,9 @@ export default function EditProfileScreen() {
                   <View style={styles.inlineLabelRow}>
                     <ThemedText style={styles.label}>
                       {idLabel}{" "}
-                      <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                      {!((idNumber || "").trim().length > 0) ? (
+                        <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                      ) : null}
                     </ThemedText>
                     {status === "visitor" ? (
                       <Ionicons
@@ -598,9 +790,20 @@ export default function EditProfileScreen() {
                     keyboardType={
                       status === "visitor" ? "default" : "number-pad"
                     }
-                    placeholder={
-                      status === "resident" ? "Starts with 2, 10 digits" : ""
-                    }
+                    placeholder={(() => {
+                      switch (status) {
+                        case "citizen":
+                          return "National ID";
+                        case "resident":
+                          return "Resident ID (starts with 2)";
+                        case "gulf":
+                          return "Gulf National ID";
+                        case "visitor":
+                          return "Passport number";
+                        default:
+                          return "ID";
+                      }
+                    })()}
                     placeholderTextColor="#9BA1A6"
                     style={styles.input}
                     onFocus={() => scrollToField("idNumber")}
@@ -612,7 +815,9 @@ export default function EditProfileScreen() {
                   <View style={{ flex: 0.5 }}>
                     <ThemedText style={styles.label}>
                       Version{" "}
-                      <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                      {!(typeof idVersion === "number" && idVersion >= 1) ? (
+                        <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                      ) : null}
                     </ThemedText>
                     <View style={styles.versionRow}>
                       <TouchableOpacity
@@ -665,8 +870,23 @@ export default function EditProfileScreen() {
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {idExpiryLabel}{" "}
-                    <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    {(() => {
+                      switch (status) {
+                        case "citizen":
+                          return "National ID Expiry Date";
+                        case "resident":
+                          return "Resident ID expiry date";
+                        case "gulf":
+                          return "Gulf ID Expiry Date";
+                        case "visitor":
+                          return "Passport Expiry Date";
+                        default:
+                          return "ID Expiry Date";
+                      }
+                    })()}{" "}
+                    {!idExpiry ? (
+                      <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    ) : null}
                   </ThemedText>
                   <TouchableOpacity
                     style={[styles.input, styles.codeSelector]}
@@ -690,8 +910,10 @@ export default function EditProfileScreen() {
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    Driver License Expiry Date{" "}
-                    <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    Driver license expiry{" "}
+                    {!dlExpiry ? (
+                      <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    ) : null}
                   </ThemedText>
                   <TouchableOpacity
                     style={[styles.input, styles.codeSelector]}
@@ -719,7 +941,9 @@ export default function EditProfileScreen() {
                     ellipsizeMode="tail"
                   >
                     Driver License No.{" "}
-                    <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    {!((driverLicenseNo || "").trim().length > 0) ? (
+                      <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    ) : null}
                   </ThemedText>
                   <TextInput
                     value={driverLicenseNo}
@@ -741,7 +965,9 @@ export default function EditProfileScreen() {
                     ellipsizeMode="tail"
                   >
                     Date Of Birth{" "}
-                    <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    {!dob ? (
+                      <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    ) : null}
                   </ThemedText>
                   <TouchableOpacity
                     style={[styles.input, styles.codeSelector]}
@@ -765,7 +991,9 @@ export default function EditProfileScreen() {
                 <View style={{ flex: 1 }}>
                   <ThemedText style={styles.label}>
                     Nationality{" "}
-                    <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    {!nationality ? (
+                      <ThemedText style={{ color: "#ff6b6b" }}>*</ThemedText>
+                    ) : null}
                   </ThemedText>
                   <TouchableOpacity
                     style={[styles.input, styles.codeSelector]}
@@ -785,9 +1013,10 @@ export default function EditProfileScreen() {
               style={[
                 styles.button,
                 { marginHorizontal: 16, marginTop: 8, marginBottom: 24 },
+                !canSave ? { opacity: 0.5 } : null,
               ]}
               onPress={onSave}
-              disabled={saving}
+              disabled={saving || !canSave}
             >
               {saving ? (
                 <ActivityIndicator color="#151718" />
@@ -863,14 +1092,10 @@ export default function EditProfileScreen() {
       {/* Android native spinner picker */}
       {Platform.OS === "android" && showAndroidNativePicker ? (
         <DateTimePicker
-          key={`android-picker-${datePickerTarget}-${tempDate}-${pickerKey}`}
           value={iosTempDate}
           mode="date"
           display="spinner"
-          // maximumDate={datePickerTarget === "dob" ? new Date() : undefined}
-          // minimumDate={
-          //   datePickerTarget === "dob" ? new Date(1900, 0, 1) : new Date()
-          // }
+          maximumDate={datePickerTarget === "dob" ? new Date() : undefined}
           onChange={(event, selectedDate) => {
             if ((event as any)?.type !== "dismissed" && selectedDate) {
               const final = toDateString(selectedDate);
@@ -902,7 +1127,6 @@ export default function EditProfileScreen() {
             </View>
             {Platform.OS === "ios" ? (
               <View
-                key={`ios-wrapper-${datePickerTarget}-${tempDate}-${pickerKey}`}
                 style={{
                   backgroundColor: "#1b1e1f",
                   borderRadius: 12,
@@ -911,24 +1135,9 @@ export default function EditProfileScreen() {
                 }}
               >
                 <DateTimePicker
-                  key={`ios-picker-${datePickerTarget}-${tempDate}-${pickerKey}`}
                   value={iosTempDate}
                   mode="date"
                   display="spinner"
-                  // maximumDate={
-                  //   datePickerTarget === "dob"
-                  //     ? new Date(
-                  //         new Date().getFullYear(),
-                  //         new Date().getMonth(),
-                  //         new Date().getDate()
-                  //       )
-                  //     : undefined
-                  // }
-                  // minimumDate={
-                  //   datePickerTarget === "dob"
-                  //     ? new Date(1900, 0, 1)
-                  //     : new Date()
-                  // }
                   onChange={(e, d) => {
                     if (d) setIosTempDate(d);
                   }}
@@ -937,19 +1146,8 @@ export default function EditProfileScreen() {
               </View>
             ) : (
               <Calendar
-                key={`cal-${datePickerTarget}-${tempDate}-${pickerKey}`}
                 style={{ alignSelf: "stretch" }}
                 current={tempDate}
-                // maxDate={
-                //   datePickerTarget === "dob"
-                //     ? toDateString(new Date())
-                //     : undefined
-                // }
-                // minDate={
-                //   datePickerTarget === "dob"
-                //     ? "1900-01-01"
-                //     : toDateString(new Date())
-                // }
                 onDayPress={onSelectDate}
                 markedDates={{
                   [tempDate]: {
