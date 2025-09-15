@@ -160,6 +160,7 @@ export default function EditProfileScreen() {
   );
 
   const openDatePicker = (target: "id" | "dl" | "dob", initial: string) => {
+    console.log("openDatePicker", target, initial);
     Keyboard.dismiss();
     setDatePickerTarget(target);
     setTempDate(initial || toDateString(new Date()));
@@ -176,6 +177,7 @@ export default function EditProfileScreen() {
   const confirmDate = () => {
     const finalDate =
       Platform.OS === "ios" ? toDateString(iosTempDate) : tempDate;
+    console.log("confirmDate", finalDate);
     if (datePickerTarget === "id") setIdExpiry(finalDate);
     if (datePickerTarget === "dl") setDlExpiry(finalDate);
     if (datePickerTarget === "dob") setDob(finalDate);
@@ -1095,7 +1097,11 @@ export default function EditProfileScreen() {
           value={iosTempDate}
           mode="date"
           display="spinner"
-          maximumDate={datePickerTarget === "dob" ? new Date() : undefined}
+          maximumDate={
+            datePickerTarget === "dob"
+              ? new Date(new Date().setFullYear(new Date().getFullYear() - 18))
+              : undefined
+          }
           onChange={(event, selectedDate) => {
             if ((event as any)?.type !== "dismissed" && selectedDate) {
               const final = toDateString(selectedDate);
@@ -1138,6 +1144,24 @@ export default function EditProfileScreen() {
                   value={iosTempDate}
                   mode="date"
                   display="spinner"
+                  maximumDate={
+                    datePickerTarget === "dob"
+                      ? new Date(
+                          new Date().setFullYear(new Date().getFullYear() - 18)
+                        )
+                      : new Date(
+                          new Date().setFullYear(new Date().getFullYear() + 100)
+                        )
+                  }
+                  minimumDate={
+                    datePickerTarget === "dl" || datePickerTarget === "id"
+                      ? new Date(
+                          new Date().setMonth(new Date().getMonth() + 1, 1)
+                        )
+                      : new Date(
+                          new Date().setFullYear(new Date().getFullYear() - 200)
+                        )
+                  }
                   onChange={(e, d) => {
                     if (d) setIosTempDate(d);
                   }}
