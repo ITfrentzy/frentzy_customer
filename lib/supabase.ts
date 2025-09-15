@@ -1,10 +1,22 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
+import { Platform } from "react-native";
 
 // Reuse the same project as configured in app/_layout.tsx
 const supabaseUrl = "https://nnxxtvgvqgdtkgzkqacp.supabase.co";
 const supabaseKey = "sb_secret_UcU_ypGbC7qKcECfpwiVtQ_upYYVDJt" as string;
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// In React Native, explicitly configure auth storage to persist the session.
+// On web, Supabase falls back to localStorage automatically.
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: Platform.OS === "web",
+    storageKey: "sb-frentzy-auth",
+  },
+});
 
 export type CarRow = {
   id: string;

@@ -25,9 +25,6 @@ function RouterStack() {
       <Stack.Screen name="profile/edit" options={{ headerShown: false }} />
       <Stack.Screen name="terms" options={{ headerShown: false }} />
       <Stack.Screen name="privacy" options={{ headerShown: false }} />
-      {false && (
-        <Stack.Screen name="change-password" options={{ headerShown: false }} />
-      )}
       <Stack.Screen name="payment" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
     </Stack>
