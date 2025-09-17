@@ -3,7 +3,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -36,6 +36,8 @@ export default function PaymentScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams();
+  const isCheckout = String(params.mode || "") === "checkout";
 
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [showAddCard, setShowAddCard] = useState(false);
@@ -497,6 +499,30 @@ export default function PaymentScreen() {
     );
   };
 
+  const defaultCard = cards.find((c) => c.isDefault) || cards[0];
+
+  const handleConfirmPay = async () => {
+    if (!isCheckout) return;
+    if (!defaultCard) {
+      Alert.alert("Add a card", "Please add a payment method to continue.");
+      return;
+    }
+    // Simulate payment success then go to order summary
+    router.replace({
+      pathname: "/order-summary",
+      params: {
+        name: params.name || "Car",
+        brand: params.brand || "",
+        imageUrl: params.imageUrl || "",
+        startDate: params.startDate || "",
+        endDate: params.endDate || "",
+        pickupTime: params.pickupTime || "",
+        dropoffTime: params.dropoffTime || "",
+        total: params.price || "0",
+      },
+    });
+  };
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.headerRow}>
@@ -510,7 +536,7 @@ export default function PaymentScreen() {
           </TouchableOpacity>
         </View>
         <ThemedText style={styles.headerTitle} numberOfLines={1}>
-          Payment Methods
+          {isCheckout ? "Checkout" : "Payment Methods"}
         </ThemedText>
         <View style={styles.headerSide} />
       </View>
@@ -545,14 +571,29 @@ export default function PaymentScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => setShowAddCard(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={24} color="#fff" />
-        <ThemedText style={styles.addButtonText}>Add Payment Method</ThemedText>
-      </TouchableOpacity>
+      {isCheckout ? (
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: "#fff" }]}
+          onPress={handleConfirmPay}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="card" size={20} color="#151718" />
+          <ThemedText style={[styles.addButtonText, { color: "#151718" }]}>
+            Pay {params.price ? `$${String(params.price)}` : "now"}
+          </ThemedText>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setShowAddCard(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={24} color="#fff" />
+          <ThemedText style={styles.addButtonText}>
+            Add Payment Method
+          </ThemedText>
+        </TouchableOpacity>
+      )}
 
       {/* Add Card Modal */}
       <Modal

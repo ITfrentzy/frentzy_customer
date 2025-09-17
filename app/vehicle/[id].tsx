@@ -616,7 +616,37 @@ export default function VehicleDetailScreen() {
             (async () => {
               const ok = await validateProfileAndMaybeShow();
               if (ok) {
-                // proceed to payment flow here
+                const selectedAddons = Object.entries(selectedAdditionals)
+                  .filter(([, on]) => !!on)
+                  .map(([aid]) => {
+                    const item = additionals.find((a) => a.id === aid);
+                    return item
+                      ? { id: item.id, label: item.label, price: item.price }
+                      : { id: aid, label: aid, price: 0 };
+                  });
+
+                router.push({
+                  pathname: "/order-summary",
+                  params: {
+                    id,
+                    name,
+                    brand,
+                    imageUrl,
+                    year,
+                    type,
+                    startDate,
+                    endDate,
+                    pickupTime,
+                    dropoffTime,
+                    seats,
+                    transmission,
+                    distance,
+                    total: String(grandTotal),
+                    rentalDays: String(rentalDays),
+                    addons: JSON.stringify(selectedAddons),
+                    pricePerDay: String(finalPrice),
+                  },
+                });
               }
             })();
           }}
