@@ -513,7 +513,7 @@ export default function OrderSummaryScreen() {
               <TouchableOpacity
                 style={styles.secondaryButton}
                 activeOpacity={0.85}
-                onPress={() => router.push("/(tabs)/bookings")}
+                onPress={() => router.push("/bookings")}
               >
                 <Ionicons name="list" size={20} color="#4CAF50" />
                 <ThemedText style={styles.secondaryButtonText}>
